@@ -5,7 +5,7 @@ bot:
 client:
   weather:
     base-url: ${WEATHER_BASE_URL:https://api.openweathermap.org} # https://openweathermap.org/forecast16  https://openweathermap.org/forecast5
-    api-key: ${WEATHER_API_KEY:508dff1acdabb7268e658e51914a2567}
+    api-key: ${WEATHER_API_KEY}
 
 
 spring:
