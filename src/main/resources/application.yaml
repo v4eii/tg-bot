@@ -1,5 +1,5 @@
 bot:
-  token: 6451107280:AAGIAlTTa-4-0cfX4j97uQYu8hmW_FdHPjI
+  token: ${BOT_TOKEN}
   name: PartyKabachok
 
 client:
@@ -9,10 +9,8 @@ client:
 
 
 spring:
-  messages:
-    basename: messages,config.i18n.messages
   application:
     name: kabachok-tg-bot
-logging:
-  file:
-    name: "log.log"
+#logging:
+#  file:
+#    name: "log.log"
