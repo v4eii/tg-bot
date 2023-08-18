@@ -1,0 +1,18 @@
+bot:
+  token: 6451107280:AAGIAlTTa-4-0cfX4j97uQYu8hmW_FdHPjI
+  name: PartyKabachok
+
+client:
+  weather:
+    base-url: ${WEATHER_BASE_URL:https://api.openweathermap.org} # https://openweathermap.org/forecast16  https://openweathermap.org/forecast5
+    api-key: ${WEATHER_API_KEY:508dff1acdabb7268e658e51914a2567}
+
+
+spring:
+  messages:
+    basename: messages,config.i18n.messages
+  application:
+    name: kabachok-tg-bot
+logging:
+  file:
+    name: "log.log"
