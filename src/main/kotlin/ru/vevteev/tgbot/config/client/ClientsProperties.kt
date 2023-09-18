@@ -1,6 +1,12 @@
-package ru.vevteev.tgbot.config.weather
+package ru.vevteev.tgbot.config.client
 
 import org.springframework.boot.context.properties.ConfigurationProperties
+
+
+@ConfigurationProperties("client.cbr")
+data class CbrProperties(
+    val baseUrl: String
+)
 
 @ConfigurationProperties("client.weather")
 data class WeatherProperties(

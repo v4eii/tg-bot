@@ -2,15 +2,15 @@ package ru.vevteev.tgbot.bot.commands
 
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
-import org.telegram.telegrambots.bots.TelegramLongPollingBot
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow
+import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
 import ru.vevteev.tgbot.client.WeatherClient
 import ru.vevteev.tgbot.dto.toShort
 import ru.vevteev.tgbot.extension.bold
+import ru.vevteev.tgbot.extension.buildDefaultKeyboard
 import ru.vevteev.tgbot.extension.coordinatePair
 import ru.vevteev.tgbot.extension.createDeleteMessage
 import ru.vevteev.tgbot.extension.createSendMessage
@@ -22,13 +22,11 @@ import ru.vevteev.tgbot.extension.space
 import ru.vevteev.tgbot.extension.text
 import ru.vevteev.tgbot.extension.toLocalDate
 import ru.vevteev.tgbot.extension.toLocalDateTime
+import ru.vevteev.tgbot.extension.toZoneId
 import ru.vevteev.tgbot.extension.userName
 import ru.vevteev.tgbot.extension.valueOrAbsent
 import java.time.Instant
-import java.time.LocalTime
-import java.time.ZoneId
 import java.util.*
-import kotlin.math.absoluteValue
 
 @Component
 class WeatherCommandExecutor(private val weatherClient: WeatherClient, private val messageSource: MessageSource) :
@@ -38,7 +36,7 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
     override fun commandDescription(locale: Locale): String =
         messageSource.getMessage("command.description.weather", locale)
 
-    override fun perform(update: Update, bot: TelegramLongPollingBot, arguments: List<String>) {
+    override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
             val locale = locale(arguments)
             if (message.location != null) {
@@ -73,12 +71,15 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
                             )
                         ) {
                             enableMarkdown(true)
-                            replyMarkup = ReplyKeyboardRemove(true)
+                            replyMarkup = bot.buildDefaultKeyboard()
                         }
                     )
                 } else {
                     val weatherForecast =
-                        weatherClient.getWeatherInfo(coordinatePair(), arguments.getOrElse(0) { "8" }.toIntOrNull() ?: 8)
+                        weatherClient.getWeatherInfo(
+                            coordinatePair(),
+                            arguments.getOrElse(0) { "8" }.toIntOrNull() ?: 8
+                        )
                     bot.execute(
                         createSendMessage(
                             weatherForecast.city.name?.bold()?.space(2) +
@@ -108,7 +109,7 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
                                         }.joinToString("\n\n")
                         ) {
                             enableMarkdown(true)
-                            replyMarkup = ReplyKeyboardRemove(true)
+                            replyMarkup = bot.buildDefaultKeyboard()
                         }
                     )
                 }
@@ -123,7 +124,12 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
                             keyboard = listOf(
                                 KeyboardRow(
                                     listOf(
-                                        KeyboardButton("Send your location").apply { requestLocation = true }
+                                        KeyboardButton(
+                                            messageSource.getMessage(
+                                                "button.weather-location-request",
+                                                locale
+                                            )
+                                        ).apply { requestLocation = true }
                                     )
                                 )
                             )
@@ -136,13 +142,5 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
         }
     }
 
-    fun Int.toZoneId(): ZoneId =
-        ZoneId.of(
-            if (this > 0) {
-                "+" + LocalTime.ofSecondOfDay(this.toLong()).toString()
-            } else {
-                "-" + LocalTime.ofSecondOfDay(this.absoluteValue.toLong()).toString()
-            }
-        )
 
 }
