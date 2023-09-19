@@ -5,6 +5,7 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.methods.send.SendSticker
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
 import org.telegram.telegrambots.meta.api.objects.InputFile
+import org.telegram.telegrambots.meta.api.objects.Message
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton
@@ -40,6 +41,8 @@ fun Update.locale(arguments: List<String> = emptyList()) = Locale(arguments.last
 fun Update.createSticker(stickerId: String) = SendSticker(chatId(), InputFile(stickerId))
 fun Update.createSendMessage(text: String, additionalCustomize: SendMessage.() -> Unit = {}) =
     SendMessage(chatId(), text).apply { additionalCustomize.invoke(this) }
+
+fun Message.shortInfo() = "${from.firstName} says $text"
 
 fun Update.createDeleteMessage(messageId: Int) = DeleteMessage(chatId(), messageId)
 

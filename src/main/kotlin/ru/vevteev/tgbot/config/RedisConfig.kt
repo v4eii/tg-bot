@@ -1,0 +1,46 @@
+package ru.vevteev.tgbot.config
+
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties
+import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.data.redis.connection.RedisConnectionFactory
+import org.springframework.data.redis.connection.RedisPassword
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory
+import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer
+import org.springframework.data.redis.serializer.StringRedisSerializer
+import ru.vevteev.tgbot.dto.DrinkRemember
+
+
+@Configuration
+@EnableConfigurationProperties(RedisProperties::class)
+class RedisConfig {
+
+    @Bean
+    fun lettuceConnectionFactory(props: RedisProperties): LettuceConnectionFactory = LettuceConnectionFactory(
+        RedisStandaloneConfiguration(props.host, props.port).apply {
+            password = RedisPassword.of(props.password)
+        }
+    )
+
+    @Bean
+    fun redisTemplate(redisConnectionFactory: RedisConnectionFactory): RedisTemplate<String, String> =
+        RedisTemplate<String, String>().apply {
+            connectionFactory = redisConnectionFactory
+            keySerializer = StringRedisSerializer()
+            valueSerializer = StringRedisSerializer()
+            isEnableDefaultSerializer = false
+        }
+
+    @Bean
+    fun drinkRedisTemplate(redisConnectionFactory: RedisConnectionFactory): RedisTemplate<String, DrinkRemember> =
+        RedisTemplate<String, DrinkRemember>().apply {
+            connectionFactory = redisConnectionFactory
+            keySerializer = StringRedisSerializer()
+            valueSerializer = Jackson2JsonRedisSerializer(DrinkRemember::class.java)
+            isEnableDefaultSerializer = false
+        }
+
+}
