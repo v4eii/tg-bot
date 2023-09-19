@@ -25,7 +25,7 @@ class DrinkRememberSubscribeCommandExecutor(private val messageSource: MessageSo
             val locale = locale(arguments)
             if (SimpleDumbCache.drinkRememberSet.any(chatLambda).not()) {
                 bot.execute(createSendMessage(messageSource.getMessage("msg.drink-on", locale)))
-                SimpleDumbCache.drinkRememberSet.add(DrinkRemember(locale(arguments), chatId()))
+                SimpleDumbCache.drinkRememberSet.add(DrinkRemember(locale, chatId()))
             } else {
                 bot.execute(createSendMessage(messageSource.getMessage("msg.drink-off", locale)))
                 SimpleDumbCache.drinkRememberSet.removeIf(chatLambda)
