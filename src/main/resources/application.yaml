@@ -6,9 +6,8 @@ client:
   cbr:
     base-url: ${CBR_BASE_URL:https://www.cbr.ru}
   weather:
-    base-url: ${WEATHER_BASE_URL:https://api.openweathermap.org} # https://openweathermap.org/forecast16  https://openweathermap.org/forecast5
+    base-url: ${WEATHER_BASE_URL:https://api.openweathermap.org}
     api-key: ${WEATHER_API_KEY}
-
 
 spring:
   application:
