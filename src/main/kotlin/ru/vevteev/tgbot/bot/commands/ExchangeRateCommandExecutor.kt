@@ -68,7 +68,7 @@ class ExchangeRateCommandExecutor(
                     )
                 }
                 else -> {
-                    val currencies = firstArg ?: "USDRUB"
+                    val currencies = firstArg?.uppercase() ?: "USDRUB"
                     val currencyList = currencies.split(",")
                         .filter { it.length == 6 }
                         .map { it.toCurrencyPair().convertNumericPair(exchanges) }
