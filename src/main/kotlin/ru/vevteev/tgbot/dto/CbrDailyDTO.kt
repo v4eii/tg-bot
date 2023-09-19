@@ -11,7 +11,6 @@ import java.math.BigDecimal
 import java.time.LocalDate
 
 
-//@XmlRootElement(name = "ValCurs")
 @JacksonXmlRootElement(localName = "ValCurs")
 @JsonIgnoreProperties("name")
 data class CbrDailyDTO(
