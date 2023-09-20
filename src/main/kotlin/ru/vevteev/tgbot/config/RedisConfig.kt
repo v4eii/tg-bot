@@ -1,5 +1,7 @@
 package ru.vevteev.tgbot.config
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.springframework.boot.autoconfigure.data.redis.RedisProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -39,7 +41,7 @@ class RedisConfig {
         RedisTemplate<String, DrinkRemember>().apply {
             connectionFactory = redisConnectionFactory
             keySerializer = StringRedisSerializer()
-            valueSerializer = Jackson2JsonRedisSerializer(DrinkRemember::class.java)
+            valueSerializer = Jackson2JsonRedisSerializer(jacksonObjectMapper().registerKotlinModule(), DrinkRemember::class.java)
             isEnableDefaultSerializer = false
         }
 

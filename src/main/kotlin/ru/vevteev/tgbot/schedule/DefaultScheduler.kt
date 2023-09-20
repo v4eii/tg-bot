@@ -19,7 +19,6 @@ class DefaultScheduler(
     @Scheduled(cron = "0 0 9-21/2 * * *")
     fun drinkRemember() {
         redisDrinkDao.getAllReminder()
-            .values
             .forEach {
                 bot.sendMsg(it.chatId, messageSource.getMessage("msg.drink-water-remember", it.locale))
             }

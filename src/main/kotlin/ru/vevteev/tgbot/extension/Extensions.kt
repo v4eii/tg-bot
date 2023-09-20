@@ -42,7 +42,7 @@ fun Update.createSticker(stickerId: String) = SendSticker(chatId(), InputFile(st
 fun Update.createSendMessage(text: String, additionalCustomize: SendMessage.() -> Unit = {}) =
     SendMessage(chatId(), text).apply { additionalCustomize.invoke(this) }
 
-fun Message.shortInfo() = "${from.firstName} says $text"
+fun Message?.shortInfo() = "${this?.from?.firstName} says ${this?.text}"
 
 fun Update.createDeleteMessage(messageId: Int) = DeleteMessage(chatId(), messageId)
 

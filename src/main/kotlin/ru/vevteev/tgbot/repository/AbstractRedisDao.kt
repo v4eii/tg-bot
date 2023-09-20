@@ -12,7 +12,9 @@ abstract class AbstractRedisDao<K : Any, V : Any>(val redisTemplate: RedisTempla
 
     open fun exists(key: K) = redisTemplate.hasKey(key)
 
-    open fun getAll(keyPattern: K): Map<K, V> = redisTemplate.opsForHash<K, V>().entries(keyPattern)
+    open fun getAll(keyPattern: K) = redisTemplate.keys(keyPattern).mapNotNull {
+        redisTemplate.opsForValue().get(it)
+    }
 
     open fun delete(key: K) = redisTemplate.delete(key)
 }
