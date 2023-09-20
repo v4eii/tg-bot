@@ -18,6 +18,3 @@ spring:
       password: ${REDIS_PASSWORD:}
   application:
     name: kabachok-tg-bot
-#logging:
-#  file:
-#    name: "log.log"
