@@ -16,7 +16,7 @@ class DefaultScheduler(
     private val redisDrinkDao: RedisDrinkDao,
 ) {
 
-    @Scheduled(cron = "0 0 9-21/2 * * *")
+    @Scheduled(cron = "0 0 9-21/2 * * *", zone = "Europe/Moscow")
     fun drinkRemember() {
         redisDrinkDao.getAllReminder()
             .forEach {
