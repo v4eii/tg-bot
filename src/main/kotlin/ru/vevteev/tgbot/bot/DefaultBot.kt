@@ -51,6 +51,7 @@ class DefaultBot(
                 }
             }
         } catch (e: Exception) {
+            logger.error(e.message, e)
             update.run {
                 execute(createSendMessage(messageSource.getMessage("msg.i-broke", locale())))
                 execute(createSticker("CAACAgIAAxkBAAEKVp5lCgdMJuY6c6cywnQ1oNBbxOLXlQACRR4AAl_V0Ep-aKASQp4NCDAE"))

@@ -1,5 +1,6 @@
 package ru.vevteev.tgbot.bot.commands
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
@@ -28,7 +29,10 @@ class ExchangeRateCommandExecutor(
     private val cbrClient: CbrClient,
 ) : CommandExecutor {
 
-    private val xmlMapper: ObjectMapper = XmlMapper().registerModule(JavaTimeModule()).registerKotlinModule()
+    private val xmlMapper: ObjectMapper = XmlMapper().registerModule(JavaTimeModule())
+        .registerKotlinModule()
+        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+        .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
 
     override fun commandName(): String = "exchange"
 
