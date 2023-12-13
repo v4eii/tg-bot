@@ -22,6 +22,8 @@ import kotlin.math.absoluteValue
 
 
 fun Update.chatId(): String = message.chatId.toString()
+fun Update.senderChatId(): String = message.senderChat.id.toString()
+fun Update.isGroupMessage(): Boolean = message.isGroupMessage
 fun Update.userName(): String = message.from.userName
 fun Update.firstName(): String = message.from.firstName
 fun Update.lastName(): String = message.from.lastName
@@ -81,9 +83,6 @@ fun Pair<String, String>.convertNumericPair(exchanges: CbrDailyDTO): Pair<String
 
 fun Pair<String, String>.isNonEmptyPair() = first != "" && second != ""
 
-
 fun Locale.isRu() = this == Locale("ru")
-fun Locale.isNotRu() = this == Locale("ru")
-
 
 fun String.numCodeToCharCode(exchanges: CbrDailyDTO) = exchanges.valCurs.map { it.numCode to it.charCode }.find { it.first == this }?.second

@@ -8,7 +8,9 @@ import ru.vevteev.tgbot.dto.DrinkRemember
 import ru.vevteev.tgbot.extension.chatId
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.getMessage
+import ru.vevteev.tgbot.extension.isGroupMessage
 import ru.vevteev.tgbot.extension.locale
+import ru.vevteev.tgbot.extension.senderChatId
 import ru.vevteev.tgbot.repository.RedisDrinkDao
 import java.util.*
 
@@ -24,7 +26,7 @@ class DrinkRememberSubscribeCommandExecutor(
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
-            val key = chatId()
+            val key = if (isGroupMessage()) senderChatId() else chatId()
             val locale = locale(arguments)
             if (redisDrinkDao.exists(key)) {
                 redisDrinkDao.delete(key)

@@ -14,7 +14,6 @@ import java.util.*
 class UnknownCommandExecutor(private val messageSource: MessageSource) : CommandExecutor {
     override fun commandName(): String = ""
     override fun commandDescription(locale: Locale): String? = null
-
     override fun apply(command: String): Boolean = false
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
