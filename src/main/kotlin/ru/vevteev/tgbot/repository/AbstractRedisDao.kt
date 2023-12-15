@@ -3,7 +3,7 @@ package ru.vevteev.tgbot.repository
 import org.springframework.data.redis.core.RedisTemplate
 
 
-abstract class AbstractRedisDao<K : Any, V : Any>(val redisTemplate: RedisTemplate<K, V>) {
+abstract class AbstractRedisDao<K : Any, V : Any>(private val redisTemplate: RedisTemplate<K, V>) {
     open fun save(key: K, value: V) {
         redisTemplate.opsForValue().set(key, value)
     }
@@ -17,4 +17,6 @@ abstract class AbstractRedisDao<K : Any, V : Any>(val redisTemplate: RedisTempla
     }
 
     open fun delete(key: K) = redisTemplate.delete(key)
+
+    open fun String.withTag() = ""
 }

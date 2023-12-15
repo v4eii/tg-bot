@@ -14,6 +14,7 @@ import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer
 import org.springframework.data.redis.serializer.StringRedisSerializer
 import ru.vevteev.tgbot.dto.DrinkRemember
+import ru.vevteev.tgbot.dto.ScheduleData
 
 
 @Configuration
@@ -42,6 +43,15 @@ class RedisConfig {
             connectionFactory = redisConnectionFactory
             keySerializer = StringRedisSerializer()
             valueSerializer = Jackson2JsonRedisSerializer(jacksonObjectMapper().registerKotlinModule(), DrinkRemember::class.java)
+            isEnableDefaultSerializer = false
+        }
+
+    @Bean
+    fun scheduleRedisTemplate(redisConnectionFactory: RedisConnectionFactory): RedisTemplate<String, ScheduleData> =
+        RedisTemplate<String, ScheduleData>().apply {
+            connectionFactory = redisConnectionFactory
+            keySerializer = StringRedisSerializer()
+            valueSerializer = Jackson2JsonRedisSerializer(jacksonObjectMapper().registerKotlinModule(), ScheduleData::class.java)
             isEnableDefaultSerializer = false
         }
 

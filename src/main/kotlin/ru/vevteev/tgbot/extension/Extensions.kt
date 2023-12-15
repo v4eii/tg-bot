@@ -4,6 +4,7 @@ import org.springframework.context.MessageSource
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.methods.send.SendSticker
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.InputFile
 import org.telegram.telegrambots.meta.api.objects.Message
 import org.telegram.telegrambots.meta.api.objects.Update
@@ -33,11 +34,17 @@ fun Update.coordinatePair() = message.location.latitude to message.location.long
 fun Update.isCommand() = message.isCommand
 fun Update.text(): String? = message.text
 fun Update.replyMessageText(): String? = message.replyToMessage.text
+fun Update.callbackQueryMessage(): String? = callbackQuery.message.text
 fun Update.isReply() = message.isReply
 fun Update.isReplyCommand() = message.replyToMessage.isCommand
 fun Update.languageCode(): String = message.from.languageCode
-fun Update.locale(arguments: List<String> = emptyList()) = Locale(arguments.lastOrNull() ?: languageCode()).let {
-    if (it in Locale.getAvailableLocales()) it else Locale(languageCode())
+fun Update.callbackLanguageCode(): String = callbackQuery.from.languageCode
+fun Update.locale(arguments: List<String> = emptyList()): Locale {
+    val languageCode = if (hasCallbackQuery()) callbackLanguageCode() else languageCode()
+
+    return Locale(arguments.lastOrNull() ?: languageCode).let {
+        if (it in Locale.getAvailableLocales()) it else Locale(languageCode)
+    }
 }
 
 fun Update.createSticker(stickerId: String) = SendSticker(chatId(), InputFile(stickerId))
@@ -48,8 +55,16 @@ fun Message?.shortInfo() = "${this?.from?.firstName} says ${this?.text}"
 
 fun Update.createDeleteMessage(messageId: Int) = DeleteMessage(chatId(), messageId)
 
+fun Update.createEditMessage(messageId: Int, chatId: String, text: String, additionalCustomize: EditMessageText.() -> Unit = {}) =
+    EditMessageText(text).apply {
+        this.messageId = messageId
+        this.chatId = chatId
+        additionalCustomize.invoke(this)
+    }
+
 fun TelegramLongPollingBotExt.buildDefaultKeyboard() = ReplyKeyboardMarkup().apply {
-    keyboard = getCommandsExecutor().chunked(3).map { chunk -> KeyboardRow(chunk.map { KeyboardButton("/${it.commandName()}") }) }
+    keyboard = getCommandsExecutor().chunked(3)
+        .map { chunk -> KeyboardRow(chunk.map { KeyboardButton("/${it.commandName()}") }) }
     resizeKeyboard = true
 }
 
@@ -85,4 +100,5 @@ fun Pair<String, String>.isNonEmptyPair() = first != "" && second != ""
 
 fun Locale.isRu() = this == Locale("ru")
 
-fun String.numCodeToCharCode(exchanges: CbrDailyDTO) = exchanges.valCurs.map { it.numCode to it.charCode }.find { it.first == this }?.second
+fun String.numCodeToCharCode(exchanges: CbrDailyDTO) =
+    exchanges.valCurs.map { it.numCode to it.charCode }.find { it.first == this }?.second

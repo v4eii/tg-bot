@@ -1,27 +1,18 @@
 package ru.vevteev.tgbot.schedule
 
-import org.springframework.context.MessageSource
+import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.scheduling.support.CronTrigger
 import org.springframework.stereotype.Component
-import ru.vevteev.tgbot.bot.DefaultBot
-import ru.vevteev.tgbot.extension.getMessage
-import ru.vevteev.tgbot.repository.RedisDrinkDao
+import java.time.ZoneId
 
 @Component
 @EnableScheduling
 class DefaultScheduler(
-    private val bot: DefaultBot,
-    private val messageSource: MessageSource,
-    private val redisDrinkDao: RedisDrinkDao,
+    private val taskScheduler: TaskScheduler,
 ) {
-
-    @Scheduled(cron = "0 0 9-21/2 * * *", zone = "Europe/Moscow")
-    fun drinkRemember() {
-        redisDrinkDao.getAllReminder()
-            .forEach {
-                bot.sendMsg(it.chatId, messageSource.getMessage("msg.drink-water-remember", it.locale))
-            }
+    fun registerNewCronScheduleTask(cronExpression: String, some: () -> Unit) {
+        taskScheduler.schedule(some, CronTrigger(cronExpression, ZoneId.of("Europe/Moscow")))
     }
 
 }

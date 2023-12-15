@@ -3,6 +3,7 @@ package ru.vevteev.tgbot.bot.commands
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.meta.api.objects.Update
+import ru.vevteev.tgbot.bot.DefaultBot
 import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
 import ru.vevteev.tgbot.dto.DrinkRemember
 import ru.vevteev.tgbot.extension.chatId
@@ -35,6 +36,12 @@ class DrinkRememberSubscribeCommandExecutor(
                 redisDrinkDao.save(key, DrinkRemember(locale, chatId()))
                 bot.execute(createSendMessage(messageSource.getMessage("msg.drink-on", locale)))
             }
+        }
+    }
+
+    fun sendRemember(bot: DefaultBot) {
+        redisDrinkDao.getAllReminder().forEach {
+            bot.sendMsg(it.chatId, messageSource.getMessage("msg.drink-water-remember", it.locale))
         }
     }
 }
