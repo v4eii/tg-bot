@@ -3,6 +3,8 @@ bot:
   name: PartyKabachok
 
 client:
+  cat-api:
+    base-url: ${CAT_BASE_URL:https://api.thecatapi.com}
   cbr:
     base-url: ${CBR_BASE_URL:https://www.cbr.ru}
   weather:

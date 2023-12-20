@@ -55,7 +55,7 @@ fun Message?.shortInfo() = "${this?.from?.firstName} says ${this?.text}"
 
 fun Update.createDeleteMessage(messageId: Int) = DeleteMessage(chatId(), messageId)
 
-fun Update.createEditMessage(messageId: Int, chatId: String, text: String, additionalCustomize: EditMessageText.() -> Unit = {}) =
+fun createEditMessage(messageId: Int, chatId: String, text: String, additionalCustomize: EditMessageText.() -> Unit = {}) =
     EditMessageText(text).apply {
         this.messageId = messageId
         this.chatId = chatId

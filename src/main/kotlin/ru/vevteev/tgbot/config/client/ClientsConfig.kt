@@ -7,15 +7,17 @@ import org.springframework.http.codec.xml.Jaxb2XmlDecoder
 import org.springframework.http.codec.xml.Jaxb2XmlEncoder
 import org.springframework.web.reactive.function.client.ExchangeStrategies
 import org.springframework.web.reactive.function.client.WebClient
+import ru.vevteev.tgbot.client.CatClient
 import ru.vevteev.tgbot.client.CbrClient
 import ru.vevteev.tgbot.client.WeatherClient
 
 
 @Configuration
-@EnableConfigurationProperties(CbrProperties::class, WeatherProperties::class)
+@EnableConfigurationProperties(CbrProperties::class, WeatherProperties::class, RandomCatProperties::class)
 class ClientsConfig(
     private val cbrProperties: CbrProperties,
     private val weatherProperties: WeatherProperties,
+    private val catProperties: RandomCatProperties,
 ) {
 
     @Bean
@@ -44,5 +46,8 @@ class ClientsConfig(
                 .build()
         )
     }
+
+    @Bean
+    fun catClient() = catProperties.run { CatClient(webClient = WebClient.create(baseUrl)) }
 
 }

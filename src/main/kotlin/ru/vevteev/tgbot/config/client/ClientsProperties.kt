@@ -13,3 +13,8 @@ data class WeatherProperties(
     val baseUrl: String,
     val apiKey: String
 )
+
+@ConfigurationProperties("client.cat-api")
+data class RandomCatProperties(
+    val baseUrl: String,
+)
