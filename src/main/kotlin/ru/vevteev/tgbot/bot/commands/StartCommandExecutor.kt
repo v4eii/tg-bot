@@ -7,7 +7,7 @@ import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
 import ru.vevteev.tgbot.extension.buildDefaultKeyboard
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.createSticker
-import ru.vevteev.tgbot.extension.firstName
+import ru.vevteev.tgbot.extension.messageFirstName
 import ru.vevteev.tgbot.extension.getMessage
 import ru.vevteev.tgbot.extension.locale
 import java.util.*
@@ -33,7 +33,7 @@ class StartCommandExecutor(
                 createSendMessage(
                     messageSource.getMessage(
                         "msg.start",
-                        arrayOf(firstName()),
+                        arrayOf(messageFirstName()),
                         locale(arguments)
                     )
                 ) {

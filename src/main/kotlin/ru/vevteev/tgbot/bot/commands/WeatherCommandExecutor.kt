@@ -21,11 +21,11 @@ import ru.vevteev.tgbot.extension.locale
 import ru.vevteev.tgbot.extension.messageId
 import ru.vevteev.tgbot.extension.replyMessageId
 import ru.vevteev.tgbot.extension.space
-import ru.vevteev.tgbot.extension.text
+import ru.vevteev.tgbot.extension.messageText
 import ru.vevteev.tgbot.extension.toLocalDate
 import ru.vevteev.tgbot.extension.toLocalDateTime
 import ru.vevteev.tgbot.extension.toZoneId
-import ru.vevteev.tgbot.extension.userName
+import ru.vevteev.tgbot.extension.messageUserName
 import ru.vevteev.tgbot.extension.valueOrAbsent
 import java.time.Instant
 import java.util.*
@@ -55,7 +55,7 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
     ) {
         bot.execute(
             createSendMessage(
-                messageSource.getMessage("msg.weather-location-request", arrayOf(text()), locale)
+                messageSource.getMessage("msg.weather-location-request", arrayOf(messageText()), locale)
             ) {
                 replyMarkup = ReplyKeyboardMarkup().apply {
                     keyboard = listOf(
@@ -86,7 +86,7 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
             val weather = weatherClient.getCurrentWeatherInfo(coordinatePair())
             bot.execute(
                 createSendMessage(
-                    messageSource.getMessage("msg.weather", weather.buildArrayParameters(userName()), locale)
+                    messageSource.getMessage("msg.weather", weather.buildArrayParameters(messageUserName()), locale)
                 ) {
                     enableMarkdown(true)
                     replyMarkup = bot.buildDefaultKeyboard()

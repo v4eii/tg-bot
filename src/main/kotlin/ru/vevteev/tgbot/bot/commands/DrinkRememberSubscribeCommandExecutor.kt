@@ -6,12 +6,12 @@ import org.telegram.telegrambots.meta.api.objects.Update
 import ru.vevteev.tgbot.bot.DefaultBot
 import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
 import ru.vevteev.tgbot.dto.DrinkRemember
-import ru.vevteev.tgbot.extension.chatId
+import ru.vevteev.tgbot.extension.messageChatId
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.getMessage
 import ru.vevteev.tgbot.extension.isGroupMessage
 import ru.vevteev.tgbot.extension.locale
-import ru.vevteev.tgbot.extension.senderChatId
+import ru.vevteev.tgbot.extension.messageSenderChatId
 import ru.vevteev.tgbot.repository.RedisDrinkDao
 import java.util.*
 
@@ -27,13 +27,13 @@ class DrinkRememberSubscribeCommandExecutor(
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
-            val key = if (isGroupMessage()) senderChatId() else chatId()
+            val key = if (isGroupMessage()) messageSenderChatId() else messageChatId()
             val locale = locale(arguments)
             if (redisDrinkDao.exists(key)) {
                 redisDrinkDao.delete(key)
                 bot.execute(createSendMessage(messageSource.getMessage("msg.drink-off", locale)))
             } else {
-                redisDrinkDao.save(key, DrinkRemember(locale, chatId()))
+                redisDrinkDao.save(key, DrinkRemember(locale, messageChatId()))
                 bot.execute(createSendMessage(messageSource.getMessage("msg.drink-on", locale)))
             }
         }

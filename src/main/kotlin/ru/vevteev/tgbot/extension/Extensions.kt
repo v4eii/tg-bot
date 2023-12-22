@@ -22,38 +22,43 @@ import java.util.*
 import kotlin.math.absoluteValue
 
 
-fun Update.chatId(): String = message.chatId.toString()
-fun Update.senderChatId(): String = message.senderChat.id.toString()
+fun Update.messageChatId(): String = message.chatId.toString()
+fun Update.messageSenderChatId(): String = message.senderChat.id.toString()
 fun Update.isGroupMessage(): Boolean = message.isGroupMessage
-fun Update.userName(): String = message.from.userName
-fun Update.firstName(): String = message.from.firstName
-fun Update.lastName(): String = message.from.lastName
+fun Update.messageUserId(): Long = message.from.id
+fun Update.messageUserName(): String = message.from.userName
+fun Update.messageFirstName(): String = message.from.firstName
 fun Update.messageId(): Int = message.messageId
 fun Update.replyMessageId(): Int = message.replyToMessage.messageId
 fun Update.coordinatePair() = message.location.latitude to message.location.longitude
-fun Update.isCommand() = message.isCommand
-fun Update.text(): String? = message.text
+fun Update.isMessageCommand() = message.isCommand
+fun Update.messageText(): String? = message.text
 fun Update.replyMessageText(): String? = message.replyToMessage.text
-fun Update.callbackQueryMessage(): String? = callbackQuery.message.text
+fun Update.callbackQueryMessageText(): String? = callbackQuery.message.text
+fun Update.callbackQueryData(): String = callbackQuery.data
+fun Update.callbackQueryFromUserId(): Long = callbackQuery.from.id
+fun Update.callbackQueryMessageId(): Int = callbackQuery.message.messageId
+fun Update.callbackQueryMessageChatId(): Long = callbackQuery.message.chat.id
 fun Update.isReply() = message.isReply
-fun Update.isReplyCommand() = message.replyToMessage.isCommand
-fun Update.languageCode(): String = message.from.languageCode
-fun Update.callbackLanguageCode(): String = callbackQuery.from.languageCode
+fun Update.isReplyMessageCommand() = message.replyToMessage.isCommand
+fun Update.messageUserLanguageCode(): String = message.from.languageCode
+fun Update.callbackQueryUserLanguageCode(): String = callbackQuery.from.languageCode
+fun Update.isReplyMessageWithInlineMarkup(): Boolean = message.replyToMessage?.replyMarkup != null
 fun Update.locale(arguments: List<String> = emptyList()): Locale {
-    val languageCode = if (hasCallbackQuery()) callbackLanguageCode() else languageCode()
+    val languageCode = if (hasCallbackQuery()) callbackQueryUserLanguageCode() else messageUserLanguageCode()
 
     return Locale(arguments.lastOrNull() ?: languageCode).let {
         if (it in Locale.getAvailableLocales()) it else Locale(languageCode)
     }
 }
 
-fun Update.createSticker(stickerId: String) = SendSticker(chatId(), InputFile(stickerId))
+fun Update.createSticker(stickerId: String) = SendSticker(messageChatId(), InputFile(stickerId))
 fun Update.createSendMessage(text: String, additionalCustomize: SendMessage.() -> Unit = {}) =
-    SendMessage(chatId(), text).apply { additionalCustomize.invoke(this) }
+    SendMessage(messageChatId(), text).apply { additionalCustomize.invoke(this) }
 
 fun Message?.shortInfo() = "${this?.from?.firstName} says ${this?.text}"
 
-fun Update.createDeleteMessage(messageId: Int) = DeleteMessage(chatId(), messageId)
+fun Update.createDeleteMessage(messageId: Int) = DeleteMessage(messageChatId(), messageId)
 
 fun createEditMessage(messageId: Int, chatId: String, text: String, additionalCustomize: EditMessageText.() -> Unit = {}) =
     EditMessageText(text).apply {

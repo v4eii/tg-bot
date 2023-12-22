@@ -9,8 +9,9 @@ interface CommandExecutor {
 
     fun commandDescription(locale: Locale = Locale.getDefault()): String?
 
-    fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String> = emptyList())
-
     fun apply(command: String): Boolean = command.drop(1) == commandName()
 
+    fun init(bot: TelegramLongPollingBotExt) = Unit
+
+    fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String> = emptyList())
 }

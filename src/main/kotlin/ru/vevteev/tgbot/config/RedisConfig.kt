@@ -1,5 +1,6 @@
 package ru.vevteev.tgbot.config
 
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.springframework.boot.autoconfigure.data.redis.RedisProperties
@@ -42,7 +43,7 @@ class RedisConfig {
         RedisTemplate<String, DrinkRemember>().apply {
             connectionFactory = redisConnectionFactory
             keySerializer = StringRedisSerializer()
-            valueSerializer = Jackson2JsonRedisSerializer(jacksonObjectMapper().registerKotlinModule(), DrinkRemember::class.java)
+            valueSerializer = Jackson2JsonRedisSerializer(jacksonObjectMapper().registerKotlinModule().registerModule(JavaTimeModule()), DrinkRemember::class.java)
             isEnableDefaultSerializer = false
         }
 
@@ -51,7 +52,7 @@ class RedisConfig {
         RedisTemplate<String, ScheduleData>().apply {
             connectionFactory = redisConnectionFactory
             keySerializer = StringRedisSerializer()
-            valueSerializer = Jackson2JsonRedisSerializer(jacksonObjectMapper().registerKotlinModule(), ScheduleData::class.java)
+            valueSerializer = Jackson2JsonRedisSerializer(jacksonObjectMapper().registerKotlinModule().registerModule(JavaTimeModule()), ScheduleData::class.java)
             isEnableDefaultSerializer = false
         }
 

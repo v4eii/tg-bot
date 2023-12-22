@@ -12,17 +12,17 @@ import ru.vevteev.tgbot.bot.commands.CommandCallbackExecutor
 import ru.vevteev.tgbot.bot.commands.CommandExecutor
 import ru.vevteev.tgbot.bot.commands.DrinkRememberSubscribeCommandExecutor
 import ru.vevteev.tgbot.config.BaseProperties
-import ru.vevteev.tgbot.extension.callbackQueryMessage
+import ru.vevteev.tgbot.extension.callbackQueryMessageText
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.createSticker
 import ru.vevteev.tgbot.extension.getMessage
-import ru.vevteev.tgbot.extension.isCommand
+import ru.vevteev.tgbot.extension.isMessageCommand
 import ru.vevteev.tgbot.extension.isReply
-import ru.vevteev.tgbot.extension.isReplyCommand
+import ru.vevteev.tgbot.extension.isReplyMessageCommand
 import ru.vevteev.tgbot.extension.locale
 import ru.vevteev.tgbot.extension.replyMessageText
 import ru.vevteev.tgbot.extension.shortInfo
-import ru.vevteev.tgbot.extension.text
+import ru.vevteev.tgbot.extension.messageText
 import ru.vevteev.tgbot.schedule.DefaultScheduler
 
 
@@ -40,9 +40,10 @@ class DefaultBot(
 
     @PostConstruct
     fun init() {
-        defaultScheduler.registerNewCronScheduleTask("0 0 9-21/2 * * *") {
+        defaultScheduler.registerNewCronScheduleTask("0 0 9-21/2 * * *", "ADMIN") {
             (commandExecutors.find { it.apply("drink") } as DrinkRememberSubscribeCommandExecutor).sendRemember(this)
         }
+        commandExecutors.forEach { it.init(this) }
     }
 
     override fun getBotUsername(): String = baseProperties.name
@@ -52,10 +53,10 @@ class DefaultBot(
             update.run {
                 logger.info("${message.shortInfo()}; ${toString()}")
                 if (hasMessage()) {
-                    if (isCommand()) {
-                        val args = text()?.split(" ") ?: listOf("")
+                    if (isMessageCommand()) {
+                        val args = messageText()?.split(" ") ?: listOf("")
                         commandExecutors.performCommand(this, args)
-                    } else if (isReply() && isReplyCommand()) {
+                    } else if (isReply() && isReplyMessageCommand()) {
                         val args = replyMessageText()?.split("|")?.first()?.split(" ") ?: listOf("")
                         commandExecutors.performCommand(this, args)
                     } else {
@@ -63,7 +64,7 @@ class DefaultBot(
                         execute(createSticker("CAACAgIAAxkBAAEKVo1lCfZuLRg2HGJA9fC5ENrczyfufAAClBsAApngyEp67FOO_tH2zTAE"))
                     }
                 } else if (hasCallbackQuery()) {
-                    val args = callbackQueryMessage()?.split("|")?.first()?.split(" ") ?: listOf("")
+                    val args = callbackQueryMessageText()?.split("|")?.first()?.split(" ") ?: listOf("")
                     commandCallbackExecutors.performCallback(this, args)
                 } else {
                     {}
