@@ -8,7 +8,9 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageTe
 import org.telegram.telegrambots.meta.api.objects.InputFile
 import org.telegram.telegrambots.meta.api.objects.Message
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow
 import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
@@ -21,6 +23,23 @@ import java.time.ZoneId
 import java.util.*
 import kotlin.math.absoluteValue
 
+const val CANCEL_DATA = "cancel"
+const val CANCEL_DESCRIPTION = "Отмена"
+
+fun oneButtonInlineKeyboard(text: String, callbackData: String) = InlineKeyboardMarkup(
+    listOf(listOf(callbackButton(text, callbackData)))
+)
+
+fun Update.cancelHandler(bot: TelegramLongPollingBotExt) {
+//    bot.execute(createDeleteMessage(callbackQueryMessageId()))
+    bot.execute(createEditMessage(callbackQueryMessageId(), CANCEL_DESCRIPTION))
+}
+
+fun Update.messageChatIdSafe(): String =
+    if (hasCallbackQuery()) callbackQueryMessageChatId().toString() else messageChatId()
+
+fun Update.messageUserIdSafe(): String =
+    if (hasCallbackQuery()) callbackQueryFromUserId().toString() else messageUserId().toString()
 
 fun Update.messageChatId(): String = message.chatId.toString()
 fun Update.messageSenderChatId(): String = message.senderChat.id.toString()
@@ -52,22 +71,35 @@ fun Update.locale(arguments: List<String> = emptyList()): Locale {
     }
 }
 
-fun Update.createSticker(stickerId: String) = SendSticker(messageChatId(), InputFile(stickerId))
+fun Update.createSticker(stickerId: String) = SendSticker(messageChatIdSafe(), InputFile(stickerId))
 fun Update.createSendMessage(text: String, additionalCustomize: SendMessage.() -> Unit = {}) =
-    SendMessage(messageChatId(), text).apply { additionalCustomize.invoke(this) }
+    SendMessage(messageChatIdSafe(), text).apply { additionalCustomize.invoke(this) }
+
+fun Update.createDeleteMessage(messageId: Int) = DeleteMessage(messageChatIdSafe(), messageId)
+fun Update.createEditMessage(
+    messageId: Int,
+    text: String,
+    chatId: String = messageChatIdSafe(),
+    additionalCustomize: EditMessageText.() -> Unit = {}
+) = EditMessageText(text).apply {
+    this.messageId = messageId
+    this.chatId = chatId
+    additionalCustomize.invoke(this)
+}
+
+fun SendMessage.withCommandKeyboard(bot: TelegramLongPollingBotExt) = apply {
+    enableMarkdown(true)
+    replyMarkup = bot.buildDefaultCommandKeyboard()
+}
 
 fun Message?.shortInfo() = "${this?.from?.firstName} says ${this?.text}"
-
-fun Update.createDeleteMessage(messageId: Int) = DeleteMessage(messageChatId(), messageId)
-
-fun createEditMessage(messageId: Int, chatId: String, text: String, additionalCustomize: EditMessageText.() -> Unit = {}) =
-    EditMessageText(text).apply {
-        this.messageId = messageId
-        this.chatId = chatId
-        additionalCustomize.invoke(this)
+fun InlineKeyboardMarkup.withCancelButton() = apply {
+    keyboard = keyboard.toMutableList().apply {
+        add(listOf(callbackButton(CANCEL_DESCRIPTION, CANCEL_DATA)))
     }
+}
 
-fun TelegramLongPollingBotExt.buildDefaultKeyboard() = ReplyKeyboardMarkup().apply {
+fun TelegramLongPollingBotExt.buildDefaultCommandKeyboard() = ReplyKeyboardMarkup().apply {
     keyboard = getCommandsExecutor().chunked(3)
         .map { chunk -> KeyboardRow(chunk.map { KeyboardButton("/${it.commandName()}") }) }
     resizeKeyboard = true
@@ -88,6 +120,9 @@ fun Int.toZoneId(): ZoneId = ZoneId.of(
     }
 )
 
+fun String.commandMarker(arguments: List<String> = emptyList()) =
+    "/$this ${arguments.joinToString(" ")}".trim() + "|"
+
 fun String.bold() = "*$this*"
 fun String.space(count: Int = 1) = "$this${"\n".repeat(count)}"
 fun String.isDigits() = toIntOrNull() != null
@@ -107,3 +142,9 @@ fun Locale.isRu() = this == Locale("ru")
 
 fun String.numCodeToCharCode(exchanges: CbrDailyDTO) =
     exchanges.valCurs.map { it.numCode to it.charCode }.find { it.first == this }?.second
+
+fun callbackButton(text: String, callbackData: Enum<*>) =
+    InlineKeyboardButton(text).apply { this.callbackData = callbackData.toString() }
+
+fun callbackButton(text: String, callbackData: String) =
+    InlineKeyboardButton(text).apply { this.callbackData = callbackData }

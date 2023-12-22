@@ -27,10 +27,9 @@ class HelpCommandExecutor(
                     messageSource.getMessage(
                         "msg.help",
                         arrayOf(
-                            bot.getCommandsExecutor()
-                                .joinToString("\n") {
-                                    "/${it.commandName()} - ${it.commandDescription(locale)}"
-                                }
+                            bot.getCommandsExecutor().joinToString("\n") {
+                                "/${it.commandName()} - ${it.commandDescription(locale)}"
+                            }
                         ),
                         locale
                     )

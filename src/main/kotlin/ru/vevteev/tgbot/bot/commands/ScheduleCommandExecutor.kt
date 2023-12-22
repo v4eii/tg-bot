@@ -11,7 +11,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendSticker
 import org.telegram.telegrambots.meta.api.objects.InputFile
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
 import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
 import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackActionType.NONE
 import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackActionType.RANDOM_CAT
@@ -19,6 +18,8 @@ import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackActionType.
 import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackDayType.CUSTOM
 import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackDayType.EVERY_DAY
 import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackDayType.WEEKDAYS
+import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackModeType.CREATE
+import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackModeType.DELETE
 import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackTimeType.AM_12
 import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackTimeType.EVERY_HOUR
 import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.CallbackTimeType.EVERY_MINUTE
@@ -31,23 +32,29 @@ import ru.vevteev.tgbot.bot.commands.ScheduleCommandExecutor.RandomContentType.T
 import ru.vevteev.tgbot.client.CatClient
 import ru.vevteev.tgbot.dto.CronData
 import ru.vevteev.tgbot.dto.ScheduleData
-import ru.vevteev.tgbot.extension.callbackQueryFromUserId
+import ru.vevteev.tgbot.extension.CANCEL_DATA
+import ru.vevteev.tgbot.extension.callbackButton
 import ru.vevteev.tgbot.extension.callbackQueryData
+import ru.vevteev.tgbot.extension.callbackQueryFromUserId
 import ru.vevteev.tgbot.extension.callbackQueryMessageChatId
 import ru.vevteev.tgbot.extension.callbackQueryMessageId
+import ru.vevteev.tgbot.extension.cancelHandler
+import ru.vevteev.tgbot.extension.commandMarker
 import ru.vevteev.tgbot.extension.createDeleteMessage
 import ru.vevteev.tgbot.extension.createEditMessage
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.getMessage
-import ru.vevteev.tgbot.extension.isReply
-import ru.vevteev.tgbot.extension.isReplyMessageCommand
 import ru.vevteev.tgbot.extension.isReplyMessageWithInlineMarkup
 import ru.vevteev.tgbot.extension.locale
-import ru.vevteev.tgbot.extension.messageUserId
+import ru.vevteev.tgbot.extension.messageText
+import ru.vevteev.tgbot.extension.messageUserIdSafe
+import ru.vevteev.tgbot.extension.oneButtonInlineKeyboard
 import ru.vevteev.tgbot.extension.replyMessageId
+import ru.vevteev.tgbot.extension.withCancelButton
 import ru.vevteev.tgbot.repository.RedisScheduleDao
 import ru.vevteev.tgbot.schedule.DefaultScheduler
 import java.net.URL
+import java.time.OffsetDateTime
 import java.util.*
 
 @Component
@@ -56,7 +63,7 @@ class ScheduleCommandExecutor(
     private val defaultScheduler: DefaultScheduler,
     private val redisDao: RedisScheduleDao,
     private val catClient: CatClient, // TODO move to collection
-) : CommandCallbackExecutor {
+) : CommandCallbackExecutor, CommandReplyExecutor {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     override fun commandName() = "schedule"
@@ -64,63 +71,41 @@ class ScheduleCommandExecutor(
     override fun commandDescription(locale: Locale) = messageSource.getMessage("command.description.schedule", locale)
 
     override fun init(bot: TelegramLongPollingBotExt) {
-        redisDao.getAll("*").forEach {
-            defaultScheduler.registerNewCronScheduleTask(
-                it.cron.toString(),
-                it.userId,
-                when (it.action) {
-                    RANDOM_CAT -> {
-                        { catAction(it.chatId, catClient, bot) }
+        val all = redisDao.getAll("*")
+        all.filter { it.scheduleComplete }
+            .forEach {
+                defaultScheduler.registerNewCronScheduleTask(
+                    it.cron.toString(),
+                    it.userId,
+                    when (it.action) {
+                        RANDOM_CAT -> {
+                            { catAction(it.chatId, catClient, bot) }
+                        }
+                        RANDOM_CONTENT -> {
+                            val (type, fileId) = it.actionDescription.split(":");
+                            { randomContent(RandomContentType.valueOf(type), fileId, it.chatId, bot) }
+                        }
+                        NONE -> {
+                            {}
+                        }
                     }
+                )
+            }
+            .also { logger.info("Init all schedules") }
 
-                    RANDOM_CONTENT -> {
-                        val (type, fileId) = it.actionDescription.split(":");
-                        { randomContent(RandomContentType.valueOf(type), fileId, it.chatId, bot) }
-                    }
-
-                    NONE -> {
-                        {}
-                    }
-                }
-            )
-        }
-        logger.info("Init all schedules")
+        all.filter { it.scheduleComplete.not() && it.createDate.plusDays(1).isBefore(OffsetDateTime.now()) }
+            .forEach { redisDao.delete(it.keyValue()) }
+            .also { logger.info("All outdated schedules deleted") }
     }
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
             val locale = locale(arguments) // TODO
-            if ("-d" in arguments) {
-                val all = redisDao.getAll("${messageUserId()}*")
-                if (all.isEmpty()) {
-                    bot.execute(
-                        createSendMessage("У тебя нет ни одной созданной задачи")
-                    )
-                } else {
-                    bot.execute(
-                        createSendMessage("/${commandName()}| Выбери какую задачу хочешь удалить") {
-                            replyMarkup = InlineKeyboardMarkup(
-                                all.map {
-                                    listOf(
-                                        callbackButton(
-                                            "${it.action.description} - ${it.cron}",
-                                            "remove:${it.keyValue()}"
-                                        )
-                                    )
-                                }
-                            )
-                        }
-                    )
+            bot.execute(
+                createSendMessage("${commandName().commandMarker(arguments)} Давай определимся что будем делать") {
+                    replyMarkup = buildStartInlineKeyboard().withCancelButton()
                 }
-            } else if (isReply() && isReplyMessageCommand() && isReplyMessageWithInlineMarkup()) {
-                replyProcess(bot)
-            } else {
-                bot.execute(
-                    createSendMessage("/${commandName()}| Давай определимся что будем делать") {
-                        replyMarkup = buildInitInlineKeyboard()
-                    }
-                )
-            }
+            )
             return
         }
     }
@@ -129,35 +114,33 @@ class ScheduleCommandExecutor(
         update.run {
             val data = callbackQueryData()
             val locale = locale(arguments)
-            val callbackUserId = callbackQueryFromUserId().toString()
-            val callbackMessageId = callbackQueryMessageId()
-            val callbackMessageChatId = callbackQueryMessageChatId().toString()
             when {
+                data == CANCEL_DATA -> cancelHandler(bot)
+
+                data in CallbackModeType.values().map { it.toString() } -> {
+                    when (CallbackModeType.valueOf(data)) {
+                        CREATE -> bot.execute(
+                            createEditMessage(
+                                callbackQueryMessageId(),
+                                text = "${commandName().commandMarker(arguments)} Определимся с днями"
+                            ) {
+                                replyMarkup = buildInitScheduleInlineKeyboard().withCancelButton()
+                            }
+                        )
+                        DELETE -> deleteSchedule(bot, arguments)
+                    }
+                }
+
                 data in CallbackDayType.values().map { it.toString() } -> {
-                    processCallbackDayType(
-                        locale,
-                        CallbackDayType.valueOf(data),
-                        callbackUserId,
-                        callbackMessageId,
-                        callbackMessageChatId,
-                        bot
-                    )
-                    timeStepEdit(bot)
+                    processCallbackDayType(locale, CallbackDayType.valueOf(data), bot, arguments)
                 }
 
                 data in CallbackTimeType.values().map { it.toString() } -> {
-                    processCallbackTimeType(CallbackTimeType.valueOf(data), callbackUserId)
-                    actionStepEdit(bot)
+                    processCallbackTimeType(CallbackTimeType.valueOf(data), bot, arguments)
                 }
 
                 data in CallbackActionType.values().map { it.toString() } -> {
-                    processCallbackActionType(
-                        CallbackActionType.valueOf(data),
-                        callbackUserId,
-                        callbackMessageId,
-                        callbackMessageChatId,
-                        bot
-                    )
+                    processCallbackActionType(CallbackActionType.valueOf(data), bot, arguments)
                 }
 
                 data.contains("remove:.*".toRegex()) -> {
@@ -168,22 +151,113 @@ class ScheduleCommandExecutor(
                             defaultScheduler.removeCronSchedule(it.cron.toString(), it.userId)
                         }
                     }
-                    bot.execute(
-                        createEditMessage(callbackMessageId, callbackMessageChatId, "Готово!")
-                    )
+                    bot.execute(createDeleteMessage(callbackQueryMessageId()))
+                    bot.execute(createSendMessage("Готово!"))
                 }
             }
             return
         }
     }
 
-    private fun processCallbackActionType(
-        actionType: CallbackActionType,
-        callbackUserId: String,
-        callbackMessageId: Int,
-        callbackMessageChatId: String,
-        bot: TelegramLongPollingBotExt
+    override fun processReply(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
+        update.run {
+            if (isReplyMessageWithInlineMarkup()) {
+                val replyMarkup = message.replyToMessage.replyMarkup
+                when (replyMarkup?.keyboard?.firstOrNull()?.firstOrNull()?.callbackData) {
+                    "random_content_waiting" -> processRandomContentWaitingReply(bot)
+                    "custom_cron_waiting" -> processCustomCronWaitingReply(bot, arguments)
+                }
+            }
+        }
+    }
+
+    private fun Update.processCustomCronWaitingReply(
+        bot: TelegramLongPollingBotExt,
+        arguments: List<String>
     ) {
+        if (message.hasText()) {
+            val inputCron = messageText()!!.split(" ")
+            if (inputCron.size !in 5..6) {
+                bot.execute(createSendMessage("Некорректный формат выражения, укажи 5 или 6 аргументов"))
+            } else {
+                val updCron = when (inputCron.size) {
+                    5 -> {
+                        CronData(
+                            second = "0",
+                            minute = inputCron[0],
+                            hour = inputCron[1],
+                            dayOfMonth = inputCron[2],
+                            month = inputCron[3],
+                            dayOfWeek = inputCron[4]
+                        )
+                    }
+                    6 -> {
+                        CronData(
+                            second = inputCron[0],
+                            minute = inputCron[1],
+                            hour = inputCron[2],
+                            dayOfMonth = inputCron[3],
+                            month = inputCron[4],
+                            dayOfWeek = inputCron[5]
+                        )
+                    }
+                    else -> CronData()
+                }
+                redisDao.get(message.from.id.toString())?.apply {
+                    cron.second = updCron.second
+                    cron.minute = updCron.minute
+                    cron.hour = updCron.hour
+                    cron.dayOfMonth = updCron.dayOfMonth
+                    cron.month = updCron.month
+                    cron.dayOfWeek = updCron.dayOfWeek
+                }?.also {
+                    redisDao.save(message.from.id.toString(), it)
+                    actionStepEdit(bot, arguments, message.replyToMessage.messageId)
+                }
+            }
+        } else {
+            bot.execute(createSendMessage("Ответь на сообщение обычным текстом"))
+        }
+    }
+
+    private fun Update.processRandomContentWaitingReply(bot: TelegramLongPollingBotExt) {
+        redisDao.get(message.from.id.toString())?.apply {
+            val (type, s) = when {
+                message.hasAnimation() -> ANIMATION to message.animation.fileId
+                message.hasDocument() -> DOCUMENT to message.document.fileId
+                message.hasPhoto() -> PHOTO to message.photo.first().fileId
+                message.hasSticker() -> STICKER to message.sticker.fileId
+                else -> TEXT to message.text
+            }
+            actionDescription = "$type:$s"
+            scheduleComplete = true
+        }?.also {
+            redisDao.delete(it.userId)
+            redisDao.save(it.keyValue(), it)
+            defaultScheduler.registerNewCronScheduleTask(it.cron.toString(), it.userId) {
+                val (type, fileId) = it.actionDescription.split(":")
+                randomContent(RandomContentType.valueOf(type), fileId, it.chatId, bot)
+            }
+            bot.execute(createDeleteMessage(replyMessageId()))
+            bot.execute(
+                createSendMessage(
+                    "Окей! Вот твоя задача ${it.cron} ${it.action.description} ${
+                        it.actionDescription.split(
+                            ":"
+                        ).first()
+                    }"
+                )
+            )
+        }
+    }
+
+    private fun Update.processCallbackActionType(
+        actionType: CallbackActionType,
+        bot: TelegramLongPollingBotExt,
+        arguments: List<String>
+    ) {
+        val callbackUserId = callbackQueryFromUserId().toString()
+        val callbackMessageChatId = callbackQueryMessageChatId().toString()
         when (actionType) {
             RANDOM_CAT -> {
                 redisDao.run {
@@ -198,8 +272,7 @@ class ScheduleCommandExecutor(
                         }
                         bot.execute(
                             createEditMessage(
-                                callbackMessageId,
-                                callbackMessageChatId,
+                                callbackQueryMessageId(),
                                 "Окей! Вот твоя задача ${it.cron} ${it.action.description}"
                             )
                         )
@@ -215,17 +288,11 @@ class ScheduleCommandExecutor(
                         save(it.userId, it)
                         bot.execute(
                             createEditMessage(
-                                callbackMessageId,
+                                callbackQueryMessageId(),
+                                "${commandName().commandMarker(arguments)} Окей, ответь на это сообщение тем самым контентом",
                                 callbackMessageChatId,
-                                "/${commandName()}| Окей, ответь на это сообщение тем самым контентом"
                             ) {
-                                replyMarkup = InlineKeyboardMarkup(
-                                    listOf(
-                                        listOf(
-                                            callbackButton("Я жду", "random_content_waiting")
-                                        )
-                                    )
-                                )
+                                replyMarkup = oneButtonInlineKeyboard("Я жду", "random_content_waiting")
                             }
                         )
                     }
@@ -236,7 +303,11 @@ class ScheduleCommandExecutor(
         }
     }
 
-    private fun processCallbackTimeType(timeType: CallbackTimeType, callbackUserId: String) {
+    private fun Update.processCallbackTimeType(
+        timeType: CallbackTimeType,
+        bot: TelegramLongPollingBotExt,
+        arguments: List<String>
+    ) {
         val (hour, minute) = when (timeType) {
             AM_12 -> "12" to "0"
             EVERY_HOUR -> "*" to "0"
@@ -244,21 +315,22 @@ class ScheduleCommandExecutor(
             WORK_TIME -> "9-21" to "0"
         }
         redisDao.run {
-            get(callbackUserId)?.apply {
+            get(callbackQueryFromUserId().toString())?.apply {
                 cron.hour = hour
                 cron.minute = minute
             }?.also { save(it.userId, it) }
         }
+        actionStepEdit(bot, arguments)
     }
 
     private fun Update.processCallbackDayType(
         locale: Locale,
         dayType: CallbackDayType,
-        callbackUserId: String,
-        callbackMessageId: Int,
-        callbackMessageChatId: String,
-        bot: TelegramLongPollingBotExt
+        bot: TelegramLongPollingBotExt,
+        arguments: List<String>,
     ) {
+        val callbackUserId = callbackQueryFromUserId().toString()
+        val callbackMessageChatId = callbackQueryMessageChatId().toString()
         when (dayType) {
             EVERY_DAY -> redisDao.save(
                 callbackUserId,
@@ -280,75 +352,91 @@ class ScheduleCommandExecutor(
                 )
             )
 
-            CUSTOM -> bot.execute( // TODO tmp
+            CUSTOM -> {
+                redisDao.save(
+                    callbackUserId,
+                    ScheduleData(
+                        locale = locale,
+                        chatId = callbackMessageChatId,
+                        userId = callbackUserId,
+                        cron = CronData()
+                    )
+                )
+                bot.execute(
+                    createEditMessage(
+                        callbackQueryMessageId(),
+                        """
+                            ${commandName().commandMarker(arguments)} Ответь на это сообщение в виде cron-выражения, как пример https://crontab.guru/
+                            
+                            поддерживается 2 варианта: стандартное и spring cron-выражение, spring формат добавляет параметр секунды в начало (0 * * * * *) 
+                            (З.Ы. очень не советую ставить секундам *)
+                        """.trimIndent(),
+                        callbackMessageChatId,
+                    ) {
+                        replyMarkup = oneButtonInlineKeyboard("Я жду", "custom_cron_waiting")
+                    }
+                )
+            }
+        }
+
+        if (dayType != CUSTOM) {
+            timeStepEdit(bot, arguments)
+        }
+    }
+
+    private fun Update.deleteSchedule(bot: TelegramLongPollingBotExt, arguments: List<String>) {
+        val all = redisDao.getAll("${messageUserIdSafe()}*").filter { it.scheduleComplete }
+        if (all.isEmpty()) {
+            bot.execute(createEditMessage(callbackQueryMessageId(), "У тебя нет ни одной созданной задачи"))
+        } else {
+            bot.execute(
                 createEditMessage(
-                    callbackMessageId,
-                    callbackMessageChatId,
-                    callbackQuery.message.text + " (Ну реально не работает)"
+                    callbackQueryMessageId(),
+                    "${commandName().commandMarker(arguments)} Выбери какую задачу хочешь удалить"
                 ) {
-                    replyMarkup = buildInitInlineKeyboard()
+                    replyMarkup = InlineKeyboardMarkup(
+                        all.map {
+                            listOf(
+                                callbackButton(
+                                    "${it.action.description} - ${it.cron}",
+                                    "remove:${it.keyValue()}"
+                                )
+                            )
+                        }
+                    ).withCancelButton()
                 }
             )
         }
     }
 
-    private fun Update.replyProcess(bot: TelegramLongPollingBotExt) {
-        if (message.replyToMessage?.replyMarkup?.keyboard?.firstOrNull()
-                ?.firstOrNull()?.callbackData == "random_content_waiting"
-        ) {
-            redisDao.run {
-                get(message.from.id.toString())?.apply {
-                    val (type, s) = if (message.hasAnimation()) {
-                        ANIMATION to message.animation.fileId
-                    } else if (message.hasDocument()) {
-                        DOCUMENT to message.document.fileId
-                    } else if (message.hasPhoto()) {
-                        PHOTO to message.photo.first().fileId
-                    } else if (message.hasSticker()) {
-                        STICKER to message.sticker.fileId
-                    } else {
-                        TEXT to message.text
-                    }
-                    actionDescription = "$type:$s"
-                    scheduleComplete = true
-                }?.also {
-                    delete(it.userId)
-                    save(it.keyValue(), it)
-                    defaultScheduler.registerNewCronScheduleTask(it.cron.toString(), it.userId) {
-                        val (type, fileId) = it.actionDescription.split(":")
-                        randomContent(RandomContentType.valueOf(type), fileId, it.chatId, bot)
-                    }
-                    bot.sendMsg(
-                        message.replyToMessage.chat.id.toString(),
-                        "Окей! Вот твоя задача ${it.cron} ${it.action.description} ${
-                            it.actionDescription.split(":").first()
-                        }"
-                    )
-                    bot.execute(createDeleteMessage(replyMessageId()))
-                }
-            }
-        }
-    }
-
-    private fun buildInitInlineKeyboard() = InlineKeyboardMarkup(
+    private fun buildInitScheduleInlineKeyboard() = InlineKeyboardMarkup(
         listOf(
             listOf(
                 callbackButton("Каждый день", EVERY_DAY),
                 callbackButton("По будням", WEEKDAYS)
             ),
             listOf(
-                callbackButton("Своя настройка (пока не работает)", CUSTOM)
-            ),
+                callbackButton("Своя настройка", CUSTOM)
+            )
         )
     )
 
-    private fun Update.actionStepEdit(bot: TelegramLongPollingBotExt) =
+    private fun buildStartInlineKeyboard() = InlineKeyboardMarkup(
+        listOf(
+            listOf(
+                callbackButton("Создать расписание", CREATE),
+                callbackButton("Удалить расписание", DELETE)
+            )
+        )
+    )
+
+    private fun Update.actionStepEdit(
+        bot: TelegramLongPollingBotExt,
+        arguments: List<String>,
+        messageId: Int = callbackQueryMessageId()
+    ) {
         bot.execute(
-            createEditMessage(
-                callbackQuery.message.messageId,
-                callbackQuery.message.chat.id.toString(),
-                "/${commandName()}| Что будем делать?"
-            ) {
+            createEditMessage(messageId, "${commandName().commandMarker(arguments)} Что будем делать?") {
                 replyMarkup = InlineKeyboardMarkup(
                     listOf(
                         listOf(
@@ -361,13 +449,13 @@ class ScheduleCommandExecutor(
                 )
             }
         )
+    }
 
-    private fun Update.timeStepEdit(bot: TelegramLongPollingBotExt) =
+    private fun Update.timeStepEdit(bot: TelegramLongPollingBotExt, arguments: List<String>) {
         bot.execute(
             createEditMessage(
                 callbackQuery.message.messageId,
-                callbackQuery.message.chat.id.toString(),
-                "/${commandName()}| Хорошо, теперь определимся с временем"
+                "${commandName().commandMarker(arguments)} Хорошо, теперь определимся с временем"
             ) {
                 replyMarkup = InlineKeyboardMarkup(
                     listOf(
@@ -380,17 +468,12 @@ class ScheduleCommandExecutor(
                             callbackButton("С 9 утра до 9 вечера", WORK_TIME)
                         )
                     )
-                )
+                ).withCancelButton()
             }
         )
+    }
 
-    private fun callbackButton(text: String, callbackData: Enum<*>) =
-        InlineKeyboardButton(text).apply { this.callbackData = callbackData.toString() }
-
-    private fun callbackButton(text: String, callbackData: String) =
-        InlineKeyboardButton(text).apply { this.callbackData = callbackData }
-
-    fun catAction(chatId: String, catClient: CatClient, bot: TelegramLongPollingBotExt) {
+    private fun catAction(chatId: String, catClient: CatClient, bot: TelegramLongPollingBotExt) {
         val cat = catClient.getRandomCat()
         bot.execute(
             SendPhoto(
@@ -400,7 +483,7 @@ class ScheduleCommandExecutor(
         )
     }
 
-    fun randomContent(type: RandomContentType, fileId: String, chatId: String, bot: TelegramLongPollingBotExt) {
+    private fun randomContent(type: RandomContentType, fileId: String, chatId: String, bot: TelegramLongPollingBotExt) {
         when (type) {
             ANIMATION -> bot.execute(SendAnimation(chatId, InputFile(fileId)))
             DOCUMENT -> bot.execute(SendDocument(chatId, InputFile(fileId)))
@@ -410,13 +493,19 @@ class ScheduleCommandExecutor(
         }
     }
 
-    enum class CallbackDayType {
+
+    private enum class CallbackModeType {
+        CREATE,
+        DELETE
+    }
+
+    private enum class CallbackDayType {
         EVERY_DAY,
         WEEKDAYS,
         CUSTOM
     }
 
-    enum class CallbackTimeType {
+    private enum class CallbackTimeType {
         EVERY_HOUR,
         EVERY_MINUTE,
         AM_12,
@@ -429,7 +518,7 @@ class ScheduleCommandExecutor(
         NONE("Нет действия")
     }
 
-    enum class RandomContentType {
+    private enum class RandomContentType {
         ANIMATION,
         DOCUMENT,
         PHOTO,

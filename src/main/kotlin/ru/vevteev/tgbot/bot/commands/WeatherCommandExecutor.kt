@@ -3,36 +3,51 @@ package ru.vevteev.tgbot.bot.commands
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow
 import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
+import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.FIVE_DAY
+import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.FOURTH_DAY
+import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.FULL
+import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.ONE_DAY
+import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.THREE_DAY
+import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.TWO_DAY
 import ru.vevteev.tgbot.client.WeatherClient
 import ru.vevteev.tgbot.dto.WeatherDTO
 import ru.vevteev.tgbot.dto.WeatherForecastDTO
 import ru.vevteev.tgbot.dto.toShort
+import ru.vevteev.tgbot.extension.CANCEL_DATA
 import ru.vevteev.tgbot.extension.bold
-import ru.vevteev.tgbot.extension.buildDefaultKeyboard
+import ru.vevteev.tgbot.extension.buildDefaultCommandKeyboard
+import ru.vevteev.tgbot.extension.callbackButton
+import ru.vevteev.tgbot.extension.callbackQueryData
+import ru.vevteev.tgbot.extension.callbackQueryMessageId
+import ru.vevteev.tgbot.extension.cancelHandler
+import ru.vevteev.tgbot.extension.commandMarker
 import ru.vevteev.tgbot.extension.coordinatePair
 import ru.vevteev.tgbot.extension.createDeleteMessage
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.getMessage
 import ru.vevteev.tgbot.extension.locale
 import ru.vevteev.tgbot.extension.messageId
+import ru.vevteev.tgbot.extension.messageUserName
 import ru.vevteev.tgbot.extension.replyMessageId
 import ru.vevteev.tgbot.extension.space
-import ru.vevteev.tgbot.extension.messageText
 import ru.vevteev.tgbot.extension.toLocalDate
 import ru.vevteev.tgbot.extension.toLocalDateTime
 import ru.vevteev.tgbot.extension.toZoneId
-import ru.vevteev.tgbot.extension.messageUserName
 import ru.vevteev.tgbot.extension.valueOrAbsent
+import ru.vevteev.tgbot.extension.withCancelButton
 import java.time.Instant
 import java.util.*
 
 @Component
-class WeatherCommandExecutor(private val weatherClient: WeatherClient, private val messageSource: MessageSource) :
-    CommandExecutor {
+class WeatherCommandExecutor(
+    private val weatherClient: WeatherClient,
+    private val messageSource: MessageSource
+) : CommandReplyExecutor, CommandCallbackExecutor {
     override fun commandName(): String = "weather"
 
     override fun commandDescription(locale: Locale): String =
@@ -40,22 +55,74 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
-            val locale = locale(arguments)
+            bot.execute(
+                createSendMessage("${commandName().commandMarker(arguments)} Какой прогноз интересует?") {
+                    replyMarkup = InlineKeyboardMarkup(
+                        listOf(
+                            listOf(
+                                callbackButton("Один день", ONE_DAY),
+                                callbackButton("Два дня", TWO_DAY),
+                                callbackButton("Три дня", THREE_DAY),
+                            ),
+                            listOf(
+                                callbackButton("Четыре дня", FOURTH_DAY),
+                                callbackButton("Пять дней", FIVE_DAY),
+                            ),
+                            listOf(
+                                callbackButton("Полные текущие данные", FULL)
+                            )
+                        )
+                    ).withCancelButton()
+                }
+            )
+        }
+    }
+
+    override fun processReply(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
+        update.run {
             if (message.location != null) {
-                sendWeatherMessage(arguments, bot, locale)
-            } else {
-                sendRequestLocationMessage(bot, locale)
+                sendWeatherMessage(arguments, bot, locale(arguments))
             }
         }
     }
 
-    private fun Update.sendRequestLocationMessage(
+    override fun processCallback(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
+        update.run {
+            val data = callbackQueryData()
+            val locale = locale(arguments)
+
+            when (data) {
+                CANCEL_DATA -> cancelHandler(bot)
+                in CallbackWeatherMode.values().map { it.toString() } -> {
+                    val argString = when (CallbackWeatherMode.valueOf(data)) {
+                        FULL -> "c"
+                        ONE_DAY -> "8"
+                        TWO_DAY -> "16"
+                        THREE_DAY -> "24"
+                        FOURTH_DAY -> "32"
+                        FIVE_DAY -> "38" // cause max
+                    }
+
+                    sendRequestLocation(bot, argString, locale)
+                }
+                else -> {} // do nothing
+            }
+        }
+    }
+
+    private fun Update.sendRequestLocation(
         bot: TelegramLongPollingBotExt,
+        argString: String,
         locale: Locale
     ) {
+        bot.execute(createDeleteMessage(callbackQueryMessageId()))
         bot.execute(
             createSendMessage(
-                messageSource.getMessage("msg.weather-location-request", arrayOf(messageText()), locale)
+                messageSource.getMessage(
+                    "msg.weather-location-request",
+                    arrayOf(commandName().commandMarker(listOf(argString))),
+                    locale
+                )
             ) {
                 replyMarkup = ReplyKeyboardMarkup().apply {
                     keyboard = listOf(
@@ -89,7 +156,7 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
                     messageSource.getMessage("msg.weather", weather.buildArrayParameters(messageUserName()), locale)
                 ) {
                     enableMarkdown(true)
-                    replyMarkup = bot.buildDefaultKeyboard()
+                    replyMarkup = bot.buildDefaultCommandKeyboard()
                 }
             )
         } else {
@@ -100,7 +167,7 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
             bot.execute(
                 createSendMessage(weatherForecast.buildTextMessage(locale)) {
                     enableMarkdown(true)
-                    replyMarkup = bot.buildDefaultKeyboard()
+                    replyMarkup = bot.buildDefaultCommandKeyboard()
                 }
             )
         }
@@ -154,5 +221,14 @@ class WeatherCommandExecutor(private val weatherClient: WeatherClient, private v
         Instant.ofEpochSecond(dt.toLong()),
         Instant.ofEpochSecond(dt.toLong() + timezone)
     )
+
+    enum class CallbackWeatherMode {
+        FULL,
+        ONE_DAY,
+        TWO_DAY,
+        THREE_DAY,
+        FOURTH_DAY,
+        FIVE_DAY
+    }
 
 }

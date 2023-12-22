@@ -14,6 +14,7 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer
 import org.springframework.data.redis.serializer.StringRedisSerializer
+import ru.vevteev.tgbot.dto.CbrDailyDTO
 import ru.vevteev.tgbot.dto.DrinkRemember
 import ru.vevteev.tgbot.dto.ScheduleData
 
@@ -53,6 +54,15 @@ class RedisConfig {
             connectionFactory = redisConnectionFactory
             keySerializer = StringRedisSerializer()
             valueSerializer = Jackson2JsonRedisSerializer(jacksonObjectMapper().registerKotlinModule().registerModule(JavaTimeModule()), ScheduleData::class.java)
+            isEnableDefaultSerializer = false
+        }
+
+    @Bean
+    fun exchangeCacheRedisTemplate(redisConnectionFactory: RedisConnectionFactory): RedisTemplate<String, CbrDailyDTO> =
+        RedisTemplate<String, CbrDailyDTO>().apply {
+            connectionFactory = redisConnectionFactory
+            keySerializer = StringRedisSerializer()
+            valueSerializer = Jackson2JsonRedisSerializer(jacksonObjectMapper().registerKotlinModule().registerModule(JavaTimeModule()), CbrDailyDTO::class.java)
             isEnableDefaultSerializer = false
         }
 

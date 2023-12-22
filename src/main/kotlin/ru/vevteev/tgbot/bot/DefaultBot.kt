@@ -10,8 +10,10 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.objects.Update
 import ru.vevteev.tgbot.bot.commands.CommandCallbackExecutor
 import ru.vevteev.tgbot.bot.commands.CommandExecutor
-import ru.vevteev.tgbot.bot.commands.DrinkRememberSubscribeCommandExecutor
+import ru.vevteev.tgbot.bot.commands.CommandReplyExecutor
 import ru.vevteev.tgbot.config.BaseProperties
+import ru.vevteev.tgbot.config.CommandProperties
+import ru.vevteev.tgbot.extension.callbackQueryMessageChatId
 import ru.vevteev.tgbot.extension.callbackQueryMessageText
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.createSticker
@@ -20,29 +22,25 @@ import ru.vevteev.tgbot.extension.isMessageCommand
 import ru.vevteev.tgbot.extension.isReply
 import ru.vevteev.tgbot.extension.isReplyMessageCommand
 import ru.vevteev.tgbot.extension.locale
+import ru.vevteev.tgbot.extension.messageText
 import ru.vevteev.tgbot.extension.replyMessageText
 import ru.vevteev.tgbot.extension.shortInfo
-import ru.vevteev.tgbot.extension.messageText
-import ru.vevteev.tgbot.schedule.DefaultScheduler
 
 
 @Component
-@EnableConfigurationProperties(BaseProperties::class)
+@EnableConfigurationProperties(BaseProperties::class, CommandProperties::class)
 class DefaultBot(
     private val baseProperties: BaseProperties,
     private val commandExecutors: List<CommandExecutor>,
+    private val commandReplyExecutors: List<CommandReplyExecutor>,
     private val commandCallbackExecutors: List<CommandCallbackExecutor>,
     private val messageSource: MessageSource,
-    private val defaultScheduler: DefaultScheduler,
 ) : TelegramLongPollingBotExt(baseProperties.token) {
 
     private val logger: Logger = LoggerFactory.getLogger(this::class.java)
 
     @PostConstruct
     fun init() {
-        defaultScheduler.registerNewCronScheduleTask("0 0 9-21/2 * * *", "ADMIN") {
-            (commandExecutors.find { it.apply("drink") } as DrinkRememberSubscribeCommandExecutor).sendRemember(this)
-        }
         commandExecutors.forEach { it.init(this) }
     }
 
@@ -57,24 +55,25 @@ class DefaultBot(
                         val args = messageText()?.split(" ") ?: listOf("")
                         commandExecutors.performCommand(this, args)
                     } else if (isReply() && isReplyMessageCommand()) {
-                        val args = replyMessageText()?.split("|")?.first()?.split(" ") ?: listOf("")
-                        commandExecutors.performCommand(this, args)
+                        commandReplyExecutors.performReply(this, replyMessageText().parseCommandArgument())
                     } else {
                         execute(createSendMessage(messageSource.getMessage("msg.some-text-staff", locale())))
                         execute(createSticker("CAACAgIAAxkBAAEKVo1lCfZuLRg2HGJA9fC5ENrczyfufAAClBsAApngyEp67FOO_tH2zTAE"))
                     }
                 } else if (hasCallbackQuery()) {
-                    val args = callbackQueryMessageText()?.split("|")?.first()?.split(" ") ?: listOf("")
-                    commandCallbackExecutors.performCallback(this, args)
-                } else {
-                    {}
+                    commandCallbackExecutors.performCallback(this, callbackQueryMessageText().parseCommandArgument())
                 }
+                return
             }
         } catch (e: Exception) {
             logger.error(e.message, e)
             update.run {
-                execute(createSendMessage(messageSource.getMessage("msg.i-broke", locale())))
-                execute(createSticker("CAACAgIAAxkBAAEKVp5lCgdMJuY6c6cywnQ1oNBbxOLXlQACRR4AAl_V0Ep-aKASQp4NCDAE"))
+                if (hasCallbackQuery()) {
+                    sendMsg(callbackQueryMessageChatId().toString(), messageSource.getMessage("msg.i-broke", locale()))
+                } else {
+                    execute(createSendMessage(messageSource.getMessage("msg.i-broke", locale())))
+                    execute(createSticker("CAACAgIAAxkBAAEKVp5lCgdMJuY6c6cywnQ1oNBbxOLXlQACRR4AAl_V0Ep-aKASQp4NCDAE"))
+                }
             }
         }
     }
@@ -97,4 +96,9 @@ class DefaultBot(
 
     fun List<CommandCallbackExecutor>.performCallback(update: Update, args: List<String>) =
         find { it.apply(args.first()) }?.processCallback(update, this@DefaultBot, args.drop(1))
+
+    fun List<CommandReplyExecutor>.performReply(update: Update, args: List<String>) =
+        find { it.apply(args.first()) }?.processReply(update, this@DefaultBot, args.drop(1))
+
+    fun String?.parseCommandArgument() = this?.split("|")?.first()?.split(" ") ?: listOf("")
 }

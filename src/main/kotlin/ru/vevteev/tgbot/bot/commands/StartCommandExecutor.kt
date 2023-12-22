@@ -4,12 +4,12 @@ import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.meta.api.objects.Update
 import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
-import ru.vevteev.tgbot.extension.buildDefaultKeyboard
+import ru.vevteev.tgbot.extension.buildDefaultCommandKeyboard
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.createSticker
-import ru.vevteev.tgbot.extension.messageFirstName
 import ru.vevteev.tgbot.extension.getMessage
 import ru.vevteev.tgbot.extension.locale
+import ru.vevteev.tgbot.extension.messageFirstName
 import java.util.*
 
 @Component
@@ -37,7 +37,7 @@ class StartCommandExecutor(
                         locale(arguments)
                     )
                 ) {
-                    replyMarkup = bot.buildDefaultKeyboard()
+                    replyMarkup = bot.buildDefaultCommandKeyboard()
                 }
             )
             bot.execute(createSticker(stickerList.random()))
