@@ -34,7 +34,7 @@ class DefaultScheduler(private val taskScheduler: TaskScheduler) {
     }
 
     fun removeSchedule(key: String) {
-        schedules[key]?.cancel(false)
+        schedules[key]?.cancel(true)
         schedules.remove(key)
     }
 
