@@ -157,6 +157,7 @@ class ExchangeRateCommandExecutor(
             .filter { it.isNonEmptyPair() }
             .distinct()
             .flatMap { it.toList() }
+            .map { it.uppercase() }
             .ifEmpty { listOf("USD", "RUB") }
         val currencyRate = exchanges.valCurs.filter { it.charCode in currencyList.toSet() }
         bot.execute(createDeleteMessage(messageId))

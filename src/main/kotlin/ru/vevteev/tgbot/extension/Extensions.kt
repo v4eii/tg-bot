@@ -43,8 +43,13 @@ fun Update.messageUserIdSafe(): String =
 
 fun Update.messageChatId(): String = message.chatId.toString()
 fun Update.messageSenderChatId(): String = message.senderChat.id.toString()
+fun Update.isGroupMessageSafe(): Boolean = if (hasCallbackQuery()) isGroupCallbackMessage() else isGroupMessage()
 fun Update.isGroupMessage(): Boolean = message.isGroupMessage
+fun Update.isGroupCallbackMessage(): Boolean = callbackQuery.message.isGroupMessage
+fun Update.isSuperGroupMessageSafe(): Boolean = if(hasCallbackQuery()) isSuperGroupCallbackMessage() else isSuperGroupMessage()
 fun Update.isSuperGroupMessage(): Boolean = message.isSuperGroupMessage
+fun Update.isSuperGroupCallbackMessage(): Boolean = callbackQuery.message.isSuperGroupMessage
+fun Update.isGroupOrSuperGroupSafe(): Boolean = isGroupMessageSafe() || isSuperGroupMessageSafe()
 fun Update.messageUserId(): Long = message.from.id
 fun Update.messageUserName(): String = message.from.userName
 fun Update.messageFirstName(): String = message.from.firstName

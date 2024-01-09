@@ -8,6 +8,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow
 import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
+import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.CUSTOM
 import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.FIVE_DAY
 import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.FOURTH_DAY
 import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.FULL
@@ -30,6 +31,9 @@ import ru.vevteev.tgbot.extension.coordinatePair
 import ru.vevteev.tgbot.extension.createDeleteMessage
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.getMessage
+import ru.vevteev.tgbot.extension.isGroupOrSuperGroupSafe
+import ru.vevteev.tgbot.extension.isSuperGroupMessage
+import ru.vevteev.tgbot.extension.isSuperGroupMessageSafe
 import ru.vevteev.tgbot.extension.locale
 import ru.vevteev.tgbot.extension.messageId
 import ru.vevteev.tgbot.extension.messageUserName
@@ -67,6 +71,7 @@ class WeatherCommandExecutor(
                             listOf(
                                 callbackButton("Четыре дня", FOURTH_DAY),
                                 callbackButton("Пять дней", FIVE_DAY),
+//                                callbackButton("Свой период", CUSTOM) TODO
                             ),
                             listOf(
                                 callbackButton("Полные текущие данные", FULL)
@@ -94,17 +99,16 @@ class WeatherCommandExecutor(
             when (data) {
                 CANCEL_DATA -> cancelHandler(bot)
                 in CallbackWeatherMode.values().map { it.toString() } -> {
-                    val argString = when (CallbackWeatherMode.valueOf(data)) {
-                        FULL -> "c"
-                        ONE_DAY -> "8"
-                        TWO_DAY -> "16"
-                        THREE_DAY -> "24"
-                        FOURTH_DAY -> "32"
-                        FIVE_DAY -> "38" // cause max
+                    val mode = CallbackWeatherMode.valueOf(data)
+                    if (mode == CUSTOM) {
+                        bot.execute(
+                            createSendMessage("Ответь на это сообщение количеством дней")
+                        )
+                    } else {
+                        sendRequestLocation(bot, mode.argument, locale)
                     }
-
-                    sendRequestLocation(bot, argString, locale)
                 }
+
                 else -> {} // do nothing
             }
         }
@@ -124,21 +128,25 @@ class WeatherCommandExecutor(
                     locale
                 )
             ) {
-                replyMarkup = ReplyKeyboardMarkup().apply {
-                    keyboard = listOf(
-                        KeyboardRow(
-                            listOf(
-                                KeyboardButton(
-                                    messageSource.getMessage(
-                                        "button.weather-location-request",
-                                        locale
-                                    )
-                                ).apply { requestLocation = true }
+                replyMarkup = if (isGroupOrSuperGroupSafe()) {
+                    null
+                } else {
+                    ReplyKeyboardMarkup().apply {
+                        keyboard = listOf(
+                            KeyboardRow(
+                                listOf(
+                                    KeyboardButton(
+                                        messageSource.getMessage(
+                                            "button.weather-location-request",
+                                            locale
+                                        )
+                                    ).apply { requestLocation = true }
+                                )
                             )
                         )
-                    )
-                    resizeKeyboard = true
-                    oneTimeKeyboard = true
+                        resizeKeyboard = true
+                        oneTimeKeyboard = true
+                    }
                 }
             }
         )
@@ -149,7 +157,7 @@ class WeatherCommandExecutor(
         bot: TelegramLongPollingBotExt,
         locale: Locale
     ) {
-        if ("c" == (arguments.firstOrNull() ?: "")) {
+        if ("full" == (arguments.firstOrNull() ?: "")) {
             val weather = weatherClient.getCurrentWeatherInfo(coordinatePair())
             bot.execute(
                 createSendMessage(
@@ -222,13 +230,18 @@ class WeatherCommandExecutor(
         Instant.ofEpochSecond(dt.toLong() + timezone)
     )
 
-    enum class CallbackWeatherMode {
-        FULL,
-        ONE_DAY,
-        TWO_DAY,
-        THREE_DAY,
-        FOURTH_DAY,
-        FIVE_DAY
+    enum class CallbackWeatherMode(internal val argument: String) {
+        FULL("full"),
+        ONE_DAY(ONE_DAY_CHUNKS.toString()),
+        TWO_DAY(ONE_DAY_CHUNKS.times(2).toString()),
+        THREE_DAY(ONE_DAY_CHUNKS.times(3).toString()),
+        FOURTH_DAY(ONE_DAY_CHUNKS.times(4).toString()),
+        FIVE_DAY("38"), // cause max
+        CUSTOM("custom")
+    }
+
+    companion object {
+        const val ONE_DAY_CHUNKS = 8
     }
 
 }
