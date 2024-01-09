@@ -18,6 +18,7 @@ import ru.vevteev.tgbot.extension.callbackQueryMessageText
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.createSticker
 import ru.vevteev.tgbot.extension.getMessage
+import ru.vevteev.tgbot.extension.isGroupMessage
 import ru.vevteev.tgbot.extension.isMessageCommand
 import ru.vevteev.tgbot.extension.isReply
 import ru.vevteev.tgbot.extension.isReplyMessageCommand
@@ -57,8 +58,10 @@ class DefaultBot(
                     } else if (isReply() && isReplyMessageCommand()) {
                         commandReplyExecutors.performReply(this, replyMessageText().parseCommandArgument())
                     } else {
-                        execute(createSendMessage(messageSource.getMessage("msg.some-text-staff", locale())))
-                        execute(createSticker("CAACAgIAAxkBAAEKVo1lCfZuLRg2HGJA9fC5ENrczyfufAAClBsAApngyEp67FOO_tH2zTAE"))
+                        if (!isGroupMessage()) {
+                            execute(createSendMessage(messageSource.getMessage("msg.some-text-staff", locale())))
+                            execute(createSticker("CAACAgIAAxkBAAEKVo1lCfZuLRg2HGJA9fC5ENrczyfufAAClBsAApngyEp67FOO_tH2zTAE"))
+                        }
                     }
                 } else if (hasCallbackQuery()) {
                     commandCallbackExecutors.performCallback(this, callbackQueryMessageText().parseCommandArgument())
