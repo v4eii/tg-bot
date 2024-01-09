@@ -44,6 +44,7 @@ fun Update.messageUserIdSafe(): String =
 fun Update.messageChatId(): String = message.chatId.toString()
 fun Update.messageSenderChatId(): String = message.senderChat.id.toString()
 fun Update.isGroupMessage(): Boolean = message.isGroupMessage
+fun Update.isSuperGroupMessage(): Boolean = message.isSuperGroupMessage
 fun Update.messageUserId(): Long = message.from.id
 fun Update.messageUserName(): String = message.from.userName
 fun Update.messageFirstName(): String = message.from.firstName

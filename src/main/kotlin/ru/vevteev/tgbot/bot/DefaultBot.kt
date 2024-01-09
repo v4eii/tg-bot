@@ -22,6 +22,7 @@ import ru.vevteev.tgbot.extension.isGroupMessage
 import ru.vevteev.tgbot.extension.isMessageCommand
 import ru.vevteev.tgbot.extension.isReply
 import ru.vevteev.tgbot.extension.isReplyMessageCommand
+import ru.vevteev.tgbot.extension.isSuperGroupMessage
 import ru.vevteev.tgbot.extension.locale
 import ru.vevteev.tgbot.extension.messageText
 import ru.vevteev.tgbot.extension.replyMessageText
@@ -58,7 +59,7 @@ class DefaultBot(
                     } else if (isReply() && isReplyMessageCommand()) {
                         commandReplyExecutors.performReply(this, replyMessageText().parseCommandArgument())
                     } else {
-                        if (!isGroupMessage()) {
+                        if (!isSuperGroupMessage()) {
                             execute(createSendMessage(messageSource.getMessage("msg.some-text-staff", locale())))
                             execute(createSticker("CAACAgIAAxkBAAEKVo1lCfZuLRg2HGJA9fC5ENrczyfufAAClBsAApngyEp67FOO_tH2zTAE"))
                         }
