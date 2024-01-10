@@ -54,6 +54,7 @@ import ru.vevteev.tgbot.extension.withCancelButton
 import ru.vevteev.tgbot.repository.RedisScheduleDao
 import ru.vevteev.tgbot.schedule.DefaultScheduler
 import java.net.URL
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.*
 
@@ -71,31 +72,42 @@ class ScheduleCommandExecutor(
     override fun commandDescription(locale: Locale) = messageSource.getMessage("command.description.schedule", locale)
 
     override fun init(bot: TelegramLongPollingBotExt) {
-        val all = redisDao.getAll("*")
-        all.filter { it.scheduleComplete }
-            .forEach {
-                defaultScheduler.registerNewCronScheduleTask(
-                    it.cron.toString(),
-                    it.userId,
-                    when (it.action) {
-                        RANDOM_CAT -> {
-                            { catAction(it.chatId, catClient, bot) }
+        fun initSchedules() {
+            val all = redisDao.getAll("*")
+            all.filter { it.scheduleComplete }
+                .forEach {
+                    defaultScheduler.registerNewCronScheduleTask(
+                        it.cron.toString(),
+                        it.userId,
+                        when (it.action) {
+                            RANDOM_CAT -> {
+                                { catAction(it.chatId, catClient, bot) }
+                            }
+                            RANDOM_CONTENT -> {
+                                val (type, fileId) = it.actionDescription.split(":");
+                                { randomContent(RandomContentType.valueOf(type), fileId, it.chatId, bot) }
+                            }
+                            NONE -> {
+                                {}
+                            }
                         }
-                        RANDOM_CONTENT -> {
-                            val (type, fileId) = it.actionDescription.split(":");
-                            { randomContent(RandomContentType.valueOf(type), fileId, it.chatId, bot) }
-                        }
-                        NONE -> {
-                            {}
-                        }
-                    }
-                )
-            }
-            .also { logger.info("Init all schedules") }
+                    )
+                }
+                .also { logger.info("Init all schedules"); }
+        }
 
-        all.filter { it.scheduleComplete.not() && it.createDate.plusDays(1).isBefore(OffsetDateTime.now()) }
-            .forEach { redisDao.delete(it.keyValue()) }
-            .also { logger.info("All outdated schedules deleted") }
+        fun removeOutdatedTasks() {
+            val all = redisDao.getAll("*")
+            all.filter { it.scheduleComplete.not() && it.createDate.plusDays(1).isBefore(OffsetDateTime.now()) }
+                .forEach { redisDao.delete(it.keyValue()) }
+                .also { logger.info("All outdated schedules deleted") }
+        }
+
+        defaultScheduler.registerNewFixedScheduleTask(Duration.ofHours(1), "ADMIN", "refreshTasks") {
+            initSchedules()
+            removeOutdatedTasks()
+            logger.info("Tasks successfully refreshed")
+        }
     }
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {

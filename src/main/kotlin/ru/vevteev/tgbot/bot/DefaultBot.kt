@@ -18,7 +18,6 @@ import ru.vevteev.tgbot.extension.callbackQueryMessageText
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.createSticker
 import ru.vevteev.tgbot.extension.getMessage
-import ru.vevteev.tgbot.extension.isGroupMessage
 import ru.vevteev.tgbot.extension.isMessageCommand
 import ru.vevteev.tgbot.extension.isReply
 import ru.vevteev.tgbot.extension.isReplyMessageCommand
@@ -58,11 +57,9 @@ class DefaultBot(
                         commandExecutors.performCommand(this, args)
                     } else if (isReply() && isReplyMessageCommand()) {
                         commandReplyExecutors.performReply(this, replyMessageText().parseCommandArgument())
-                    } else {
-                        if (!isSuperGroupMessage()) {
-                            execute(createSendMessage(messageSource.getMessage("msg.some-text-staff", locale())))
-                            execute(createSticker("CAACAgIAAxkBAAEKVo1lCfZuLRg2HGJA9fC5ENrczyfufAAClBsAApngyEp67FOO_tH2zTAE"))
-                        }
+                    } else if (!isSuperGroupMessage()) {
+                        execute(createSendMessage(messageSource.getMessage("msg.some-text-staff", locale())))
+                        execute(createSticker("CAACAgIAAxkBAAEKVo1lCfZuLRg2HGJA9fC5ENrczyfufAAClBsAApngyEp67FOO_tH2zTAE"))
                     }
                 } else if (hasCallbackQuery()) {
                     commandCallbackExecutors.performCallback(this, callbackQueryMessageText().parseCommandArgument())
@@ -70,15 +67,7 @@ class DefaultBot(
                 return
             }
         } catch (e: Exception) {
-            logger.error(e.message, e)
-            update.run {
-                if (hasCallbackQuery()) {
-                    sendMsg(callbackQueryMessageChatId().toString(), messageSource.getMessage("msg.i-broke", locale()))
-                } else {
-                    execute(createSendMessage(messageSource.getMessage("msg.i-broke", locale())))
-                    execute(createSticker("CAACAgIAAxkBAAEKVp5lCgdMJuY6c6cywnQ1oNBbxOLXlQACRR4AAl_V0Ep-aKASQp4NCDAE"))
-                }
-            }
+            processException(e, update)
         }
     }
 
@@ -105,4 +94,19 @@ class DefaultBot(
         find { it.apply(args.first()) }?.processReply(update, this@DefaultBot, args.drop(1))
 
     fun String?.parseCommandArgument() = this?.split("|")?.first()?.split(" ") ?: listOf("")
+
+    private fun processException(
+        e: Exception,
+        update: Update
+    ) {
+        logger.error(e.message, e)
+        update.run {
+            if (hasCallbackQuery()) {
+                sendMsg(callbackQueryMessageChatId().toString(), messageSource.getMessage("msg.i-broke", locale()))
+            } else {
+                execute(createSendMessage(messageSource.getMessage("msg.i-broke", locale())))
+                execute(createSticker("CAACAgIAAxkBAAEKVp5lCgdMJuY6c6cywnQ1oNBbxOLXlQACRR4AAl_V0Ep-aKASQp4NCDAE"))
+            }
+        }
+    }
 }

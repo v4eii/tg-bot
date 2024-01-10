@@ -13,16 +13,22 @@ import java.util.concurrent.ScheduledFuture
 @Component
 @EnableScheduling
 class DefaultScheduler(private val taskScheduler: TaskScheduler) {
-    fun registerNewCronScheduleTask(cronExpression: String, userId: String, action: () -> Unit) {
-        taskScheduler.schedule(action, CronTrigger(cronExpression, ZoneId.of("Europe/Moscow")))?.also {
-            schedules["$cronExpression:$userId"] = it
-        }
+    fun registerNewCronScheduleTask(cronExpression: String, userId: String, action: () -> Unit): Boolean {
+        val key = "$cronExpression:$userId"
+        return schedules[key]?.let { false }
+            ?: taskScheduler.schedule(action, CronTrigger(cronExpression, ZoneId.of("Europe/Moscow")))?.let {
+                schedules[key] = it
+                true
+            }!!
     }
 
-    fun registerNewFixedScheduleTask(period: Duration, userId: String, actionName: String, action: () -> Unit) {
-        taskScheduler.schedule(action, PeriodicTrigger(period))?.also {
-            schedules["$actionName:$userId"] = it
-        }
+    fun registerNewFixedScheduleTask(period: Duration, userId: String, actionName: String, action: () -> Unit): Boolean {
+        val key = "$actionName:$userId"
+        return schedules[key]?.let { false }
+            ?: taskScheduler.schedule(action, PeriodicTrigger(period))?.let {
+                schedules[key] = it
+                true
+            }!!
     }
 
     fun removeCronSchedule(cronExpression: String, userId: String) {
