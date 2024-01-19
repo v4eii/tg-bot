@@ -141,33 +141,33 @@
                     </dependency>
                 </dependencies>
             </plugin>
-            <plugin>
-                <groupId>org.openapitools</groupId>
-                <artifactId>openapi-generator-maven-plugin</artifactId>
-                <version>${openapi-generator-maven-plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>urr-base</id>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                        <configuration>
-                            <inputSpec>${project.basedir}/src/main/resources/open-api/urr.yml</inputSpec>
-                            <generatorName>kotlin-spring</generatorName>
-                            <modelPackage>ru.vevteev.tgbot.model</modelPackage>
-                            <apiPackage>ru.vevteev.tgbot.api</apiPackage>
-                            <configOptions>
-                                <sourceFolder>src/gen/java/main</sourceFolder>
-                                <gradleBuildFile>false</gradleBuildFile>
-                                <dateLibrary>java8</dateLibrary>
-                                <interfaceOnly>true</interfaceOnly>
-                                <useTags>true</useTags>
-                                <useSpringBoot3>true</useSpringBoot3>
-                            </configOptions>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+<!--            <plugin>-->
+<!--                <groupId>org.openapitools</groupId>-->
+<!--                <artifactId>openapi-generator-maven-plugin</artifactId>-->
+<!--                <version>${openapi-generator-maven-plugin.version}</version>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <id>urr-base</id>-->
+<!--                        <goals>-->
+<!--                            <goal>generate</goal>-->
+<!--                        </goals>-->
+<!--                        <configuration>-->
+<!--                            <inputSpec>${project.basedir}/src/main/resources/open-api/urr.yml</inputSpec>-->
+<!--                            <generatorName>kotlin-spring</generatorName>-->
+<!--                            <modelPackage>ru.vevteev.tgbot.model</modelPackage>-->
+<!--                            <apiPackage>ru.vevteev.tgbot.api</apiPackage>-->
+<!--                            <configOptions>-->
+<!--                                <sourceFolder>src/gen/java/main</sourceFolder>-->
+<!--                                <gradleBuildFile>false</gradleBuildFile>-->
+<!--                                <dateLibrary>java8</dateLibrary>-->
+<!--                                <interfaceOnly>true</interfaceOnly>-->
+<!--                                <useTags>true</useTags>-->
+<!--                                <useSpringBoot3>true</useSpringBoot3>-->
+<!--                            </configOptions>-->
+<!--                        </configuration>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--            </plugin>-->
         </plugins>
     </build>
 
