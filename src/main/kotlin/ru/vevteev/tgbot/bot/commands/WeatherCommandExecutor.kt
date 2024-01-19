@@ -8,7 +8,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow
 import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
-import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.CUSTOM
 import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.FIVE_DAY
 import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.FOURTH_DAY
 import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.FULL
@@ -17,7 +16,6 @@ import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.
 import ru.vevteev.tgbot.bot.commands.WeatherCommandExecutor.CallbackWeatherMode.TWO_DAY
 import ru.vevteev.tgbot.client.WeatherClient
 import ru.vevteev.tgbot.dto.WeatherDTO
-import ru.vevteev.tgbot.dto.WeatherForecastDTO
 import ru.vevteev.tgbot.dto.toShort
 import ru.vevteev.tgbot.extension.CANCEL_DATA
 import ru.vevteev.tgbot.extension.bold
@@ -32,8 +30,6 @@ import ru.vevteev.tgbot.extension.createDeleteMessage
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.getMessage
 import ru.vevteev.tgbot.extension.isGroupOrSuperGroupSafe
-import ru.vevteev.tgbot.extension.isSuperGroupMessage
-import ru.vevteev.tgbot.extension.isSuperGroupMessageSafe
 import ru.vevteev.tgbot.extension.locale
 import ru.vevteev.tgbot.extension.messageId
 import ru.vevteev.tgbot.extension.messageUserName
@@ -44,6 +40,7 @@ import ru.vevteev.tgbot.extension.toLocalDateTime
 import ru.vevteev.tgbot.extension.toZoneId
 import ru.vevteev.tgbot.extension.valueOrAbsent
 import ru.vevteev.tgbot.extension.withCancelButton
+import ru.vevteev.tgbot.extension.withCommandMarker
 import java.time.Instant
 import java.util.*
 
@@ -59,22 +56,43 @@ class WeatherCommandExecutor(
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
+            val locale = locale(arguments)
             bot.execute(
-                createSendMessage("${commandName().commandMarker(arguments)} Какой прогноз интересует?") {
+                createSendMessage(
+                    messageSource.getMessage("command.weather.button.forecast-text", locale(arguments))
+                        .withCommandMarker(commandName(), arguments)
+                ) {
                     replyMarkup = InlineKeyboardMarkup(
                         listOf(
                             listOf(
-                                callbackButton("Один день", ONE_DAY),
-                                callbackButton("Два дня", TWO_DAY),
-                                callbackButton("Три дня", THREE_DAY),
+                                callbackButton(
+                                    messageSource.getMessage("command.weather.button.forecast-one", locale),
+                                    ONE_DAY
+                                ),
+                                callbackButton(
+                                    messageSource.getMessage("command.weather.button.forecast-two", locale),
+                                    TWO_DAY
+                                ),
+                                callbackButton(
+                                    messageSource.getMessage("command.weather.button.forecast-three", locale),
+                                    THREE_DAY
+                                ),
                             ),
                             listOf(
-                                callbackButton("Четыре дня", FOURTH_DAY),
-                                callbackButton("Пять дней", FIVE_DAY),
-//                                callbackButton("Свой период", CUSTOM) TODO
+                                callbackButton(
+                                    messageSource.getMessage("command.weather.button.forecast-fourth", locale),
+                                    FOURTH_DAY
+                                ),
+                                callbackButton(
+                                    messageSource.getMessage("command.weather.button.forecast-five", locale),
+                                    FIVE_DAY
+                                )
                             ),
                             listOf(
-                                callbackButton("Полные текущие данные", FULL)
+                                callbackButton(
+                                    messageSource.getMessage("command.weather.button.forecast-full", locale),
+                                    FULL
+                                )
                             )
                         )
                     ).withCancelButton()
@@ -99,14 +117,14 @@ class WeatherCommandExecutor(
             when (data) {
                 CANCEL_DATA -> cancelHandler(bot)
                 in CallbackWeatherMode.values().map { it.toString() } -> {
-                    val mode = CallbackWeatherMode.valueOf(data)
-                    if (mode == CUSTOM) {
-                        bot.execute(
-                            createSendMessage("Ответь на это сообщение количеством дней")
-                        )
-                    } else {
-                        sendRequestLocation(bot, mode.argument, locale)
-                    }
+                    sendRequestLocation(
+                        bot,
+                        listOf(
+                            CallbackWeatherMode.valueOf(data).argument,
+                            locale.language
+                        ),
+                        locale
+                    )
                 }
 
                 else -> {} // do nothing
@@ -116,7 +134,7 @@ class WeatherCommandExecutor(
 
     private fun Update.sendRequestLocation(
         bot: TelegramLongPollingBotExt,
-        argString: String,
+        arguments: List<String>,
         locale: Locale
     ) {
         bot.execute(createDeleteMessage(callbackQueryMessageId()))
@@ -124,7 +142,7 @@ class WeatherCommandExecutor(
             createSendMessage(
                 messageSource.getMessage(
                     "msg.weather-location-request",
-                    arrayOf(commandName().commandMarker(listOf(argString))),
+                    arrayOf(commandName().commandMarker(arguments)),
                     locale
                 )
             ) {
@@ -137,7 +155,7 @@ class WeatherCommandExecutor(
                                 listOf(
                                     KeyboardButton(
                                         messageSource.getMessage(
-                                            "button.weather-location-request",
+                                            "command.weather.button.location-request",
                                             locale
                                         )
                                     ).apply { requestLocation = true }
@@ -158,7 +176,7 @@ class WeatherCommandExecutor(
         locale: Locale
     ) {
         if ("full" == (arguments.firstOrNull() ?: "")) {
-            val weather = weatherClient.getCurrentWeatherInfo(coordinatePair())
+            val weather = weatherClient.getCurrentWeatherInfo(coordinatePair(), locale)
             bot.execute(
                 createSendMessage(
                     messageSource.getMessage("msg.weather", weather.buildArrayParameters(messageUserName()), locale)
@@ -170,27 +188,42 @@ class WeatherCommandExecutor(
         } else {
             val weatherForecast = weatherClient.getWeatherInfo(
                 coordinatePair(),
-                arguments.getOrElse(0) { "8" }.toIntOrNull() ?: 8
+                arguments.getOrElse(0) { "8" }.toIntOrNull() ?: 8,
+                locale
             )
-            bot.execute(
-                createSendMessage(weatherForecast.buildTextMessage(locale)) {
-                    enableMarkdown(true)
-                    replyMarkup = bot.buildDefaultCommandKeyboard()
+            weatherForecast.list
+                .chunked(30)
+                .forEach {
+                    bot.execute(
+                        createSendMessage(
+                            it.buildTextMessage(
+                                weatherForecast.city.name,
+                                weatherForecast.city.timezone,
+                                locale
+                            )
+                        ) {
+                            enableMarkdown(true)
+                            replyMarkup = bot.buildDefaultCommandKeyboard()
+                        }
+                    )
                 }
-            )
         }
         bot.execute(createDeleteMessage(messageId()))
         bot.execute(createDeleteMessage(replyMessageId()))
     }
 
-    private fun WeatherForecastDTO.buildTextMessage(locale: Locale) = city.name?.bold()?.space(2) +
-            list.map { it.toShort() }
-                .groupBy { it.dt.toLocalDate(city.timezone.toZoneId()) }
+    private fun List<WeatherDTO>.buildTextMessage(
+        cityName: String?,
+        cityTimeZone: Int,
+        locale: Locale
+    ) = cityName?.bold()?.space(2) +
+            this.map { it.toShort() }
+                .groupBy { it.dt.toLocalDate(cityTimeZone.toZoneId()) }
                 .map {
                     it.key.toString().bold().space(2) +
                             it.value.joinToString("\n\n") { dto ->
                                 dto.dt
-                                    .toLocalDateTime(city.timezone.toZoneId())
+                                    .toLocalDateTime(cityTimeZone.toZoneId())
                                     .toLocalTime()
                                     .toString()
                                     .bold().space(1) +
@@ -236,8 +269,7 @@ class WeatherCommandExecutor(
         TWO_DAY(ONE_DAY_CHUNKS.times(2).toString()),
         THREE_DAY(ONE_DAY_CHUNKS.times(3).toString()),
         FOURTH_DAY(ONE_DAY_CHUNKS.times(4).toString()),
-        FIVE_DAY("38"), // cause max
-        CUSTOM("custom")
+        FIVE_DAY(ONE_DAY_CHUNKS.times(5).toString())
     }
 
     companion object {

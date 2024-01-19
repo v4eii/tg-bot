@@ -24,7 +24,6 @@ import java.util.*
 import kotlin.math.absoluteValue
 
 const val CANCEL_DATA = "cancel"
-const val CANCEL_DESCRIPTION = "Отмена"
 
 fun oneButtonInlineKeyboard(text: String, callbackData: String) = InlineKeyboardMarkup(
     listOf(listOf(callbackButton(text, callbackData)))
@@ -32,7 +31,7 @@ fun oneButtonInlineKeyboard(text: String, callbackData: String) = InlineKeyboard
 
 fun Update.cancelHandler(bot: TelegramLongPollingBotExt) {
 //    bot.execute(createDeleteMessage(callbackQueryMessageId()))
-    bot.execute(createEditMessage(callbackQueryMessageId(), CANCEL_DESCRIPTION))
+    bot.execute(createEditMessage(callbackQueryMessageId(), "Отмена"))
 }
 
 fun Update.messageChatIdSafe(): String =
@@ -99,9 +98,10 @@ fun SendMessage.withCommandKeyboard(bot: TelegramLongPollingBotExt) = apply {
 }
 
 fun Message?.shortInfo() = "${this?.from?.firstName} says ${this?.text}"
-fun InlineKeyboardMarkup.withCancelButton() = apply {
+
+fun InlineKeyboardMarkup.withCancelButton(text: String = "Отмена") = apply {
     keyboard = keyboard.toMutableList().apply {
-        add(listOf(callbackButton(CANCEL_DESCRIPTION, CANCEL_DATA)))
+        add(listOf(callbackButton(text, CANCEL_DATA)))
     }
 }
 
@@ -128,6 +128,9 @@ fun Int.toZoneId(): ZoneId = ZoneId.of(
 
 fun String.commandMarker(arguments: List<String> = emptyList()) =
     "/$this ${arguments.joinToString(" ")}".trim() + "|"
+
+fun String.withCommandMarker(commandName: String, arguments: List<String> = emptyList()) =
+    "${commandName.commandMarker(arguments)} $this"
 
 fun String.bold() = "*$this*"
 fun String.space(count: Int = 1) = "$this${"\n".repeat(count)}"
