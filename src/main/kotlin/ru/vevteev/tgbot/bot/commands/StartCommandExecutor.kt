@@ -7,7 +7,7 @@ import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
 import ru.vevteev.tgbot.extension.buildDefaultCommandKeyboard
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.createSticker
-import ru.vevteev.tgbot.extension.getMessage
+import ru.vevteev.tgbot.extension.get
 import ru.vevteev.tgbot.extension.locale
 import ru.vevteev.tgbot.extension.messageFirstName
 import java.util.*
@@ -20,12 +20,14 @@ class StartCommandExecutor(
         "CAACAgIAAxkBAAEKDlJk3oOWYjSczQh3ZEH9VBPdwr1qywACQBUAAmZfqUpz2pY56rD8dzAE",
         "CAACAgIAAxkBAANLZN0oxQ8WGrBKlddr3aoaDuccCUwAAmAAA8GcYAyuBXtmcqTrazAE",
         "CAACAgIAAxkBAAEKDlZk3oPO-ALHV_mVPJN6n4wg-xxdgAAC1xgAAm4m4UsFYy3CmOv8qzAE",
+        "CAACAgIAAxkBAAELOUZlrPZsLzaOTpjj9ZmPwWw-A7WJ0gACvQEAAodOegRZ-IPv6UwfFTQE",
+        "CAACAgIAAxkBAAELOUhlrPaJCrmFSRYhg6VH9W4AAQyEktUAAsUAA1dPFQhEGCl_y7ESmjQE",
     )
 
     override fun commandName(): String = "start"
 
     override fun commandDescription(locale: Locale): String =
-        messageSource.getMessage("command.description.start", locale)
+        messageSource.get("command.description.start", locale)
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
