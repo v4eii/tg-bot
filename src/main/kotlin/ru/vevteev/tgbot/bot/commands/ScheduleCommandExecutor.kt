@@ -133,7 +133,7 @@ class ScheduleCommandExecutor(
             val data = callbackQueryData()
             val locale = locale(arguments)
             when {
-                data == CANCEL_DATA -> cancelHandler(bot, messageSource.get("msg.cancelez", locale))
+                data == CANCEL_DATA -> cancelHandler(bot, messageSource.get("msg.canceled", locale))
 
                 data in CallbackModeType.values().map { it.toString() } -> {
                     when (CallbackModeType.valueOf(data)) {
