@@ -1,0 +1,8 @@
+image: java:17
+
+deploy:
+  script:
+    - cd
+    - sh start-all.sh
+  only:
+    - master
