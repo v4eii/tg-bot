@@ -121,7 +121,7 @@ class ScheduleCommandExecutor(
                         .withCommandMarker(commandName(), arguments)
                 ) {
                     replyMarkup = buildStartInlineKeyboard(locale)
-                        .withCancelButton(messageSource.get("msg.cancel", locale))
+                        .withCancelButton(messageSource.get("command.button.cancel.description", locale))
                 }
             )
             return
@@ -144,7 +144,7 @@ class ScheduleCommandExecutor(
                                     .withCommandMarker(commandName(), arguments)
                             ) {
                                 replyMarkup = buildInitScheduleInlineKeyboard(locale)
-                                    .withCancelButton(messageSource.get("msg.cancel", locale))
+                                    .withCancelButton(messageSource.get("command.button.cancel.description", locale))
                             }
                         )
 
@@ -445,7 +445,7 @@ class ScheduleCommandExecutor(
                                 )
                             )
                         }
-                    ).withCancelButton(messageSource.get("msg.cancel", locale))
+                    ).withCancelButton(messageSource.get("command.button.cancel.description", locale))
                 }
             )
         }
@@ -520,7 +520,7 @@ class ScheduleCommandExecutor(
                             callbackButton(messageSource.get("command.schedule.button.work-time", locale), WORK_TIME)
                         )
                     )
-                ).withCancelButton(messageSource.get("msg.cancel", locale))
+                ).withCancelButton(messageSource.get("command.button.cancel.description", locale))
             }
         )
     }

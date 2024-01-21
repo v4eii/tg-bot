@@ -90,7 +90,7 @@ class ExchangeRateCommandExecutor(
                                 callbackButton(messageSource.get("command.exchange.button.currencies", locale), CURRENCY),
                             )
                         )
-                    ).withCancelButton(messageSource.get("msg.cancel", locale))
+                    ).withCancelButton(messageSource.get("command.button.cancel.description", locale))
                 }
             )
         }
