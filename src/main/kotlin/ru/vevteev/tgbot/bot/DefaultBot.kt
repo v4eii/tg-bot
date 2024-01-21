@@ -17,7 +17,7 @@ import ru.vevteev.tgbot.extension.callbackQueryMessageChatId
 import ru.vevteev.tgbot.extension.callbackQueryMessageText
 import ru.vevteev.tgbot.extension.createSendMessage
 import ru.vevteev.tgbot.extension.createSticker
-import ru.vevteev.tgbot.extension.getMessage
+import ru.vevteev.tgbot.extension.get
 import ru.vevteev.tgbot.extension.isMessageCommand
 import ru.vevteev.tgbot.extension.isReply
 import ru.vevteev.tgbot.extension.isReplyMessageCommand
@@ -58,7 +58,7 @@ class DefaultBot(
                     } else if (isReply() && isReplyMessageCommand()) {
                         commandReplyExecutors.performReply(this, replyMessageText().parseCommandArgument())
                     } else if (!isSuperGroupMessage()) {
-                        execute(createSendMessage(messageSource.getMessage("msg.some-text-staff", locale())))
+                        execute(createSendMessage(messageSource.get("msg.some-text-staff", locale())))
                         execute(createSticker("CAACAgIAAxkBAAEKVo1lCfZuLRg2HGJA9fC5ENrczyfufAAClBsAApngyEp67FOO_tH2zTAE"))
                     }
                 } else if (hasCallbackQuery()) {
@@ -102,9 +102,9 @@ class DefaultBot(
         logger.error(e.message, e)
         update.run {
             if (hasCallbackQuery()) {
-                sendMsg(callbackQueryMessageChatId().toString(), messageSource.getMessage("msg.i-broke", locale()))
+                sendMsg(callbackQueryMessageChatId().toString(), messageSource.get("msg.i-broke", locale()))
             } else {
-                execute(createSendMessage(messageSource.getMessage("msg.i-broke", locale())))
+                execute(createSendMessage(messageSource.get("msg.i-broke", locale())))
                 execute(createSticker("CAACAgIAAxkBAAEKVp5lCgdMJuY6c6cywnQ1oNBbxOLXlQACRR4AAl_V0Ep-aKASQp4NCDAE"))
             }
         }

@@ -28,7 +28,7 @@ import ru.vevteev.tgbot.extension.commandMarker
 import ru.vevteev.tgbot.extension.coordinatePair
 import ru.vevteev.tgbot.extension.createDeleteMessage
 import ru.vevteev.tgbot.extension.createSendMessage
-import ru.vevteev.tgbot.extension.getMessage
+import ru.vevteev.tgbot.extension.get
 import ru.vevteev.tgbot.extension.isGroupOrSuperGroupSafe
 import ru.vevteev.tgbot.extension.locale
 import ru.vevteev.tgbot.extension.messageId
@@ -52,50 +52,50 @@ class WeatherCommandExecutor(
     override fun commandName(): String = "weather"
 
     override fun commandDescription(locale: Locale): String =
-        messageSource.getMessage("command.description.weather", locale)
+        messageSource.get("command.description.weather", locale)
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
             val locale = locale(arguments)
             bot.execute(
                 createSendMessage(
-                    messageSource.getMessage("command.weather.button.forecast-text", locale(arguments))
+                    messageSource.get("command.weather.button.forecast-text", locale(arguments))
                         .withCommandMarker(commandName(), arguments)
                 ) {
                     replyMarkup = InlineKeyboardMarkup(
                         listOf(
                             listOf(
                                 callbackButton(
-                                    messageSource.getMessage("command.weather.button.forecast-one", locale),
+                                    messageSource.get("command.weather.button.forecast-one", locale),
                                     ONE_DAY
                                 ),
                                 callbackButton(
-                                    messageSource.getMessage("command.weather.button.forecast-two", locale),
+                                    messageSource.get("command.weather.button.forecast-two", locale),
                                     TWO_DAY
                                 ),
                                 callbackButton(
-                                    messageSource.getMessage("command.weather.button.forecast-three", locale),
+                                    messageSource.get("command.weather.button.forecast-three", locale),
                                     THREE_DAY
                                 ),
                             ),
                             listOf(
                                 callbackButton(
-                                    messageSource.getMessage("command.weather.button.forecast-fourth", locale),
+                                    messageSource.get("command.weather.button.forecast-fourth", locale),
                                     FOURTH_DAY
                                 ),
                                 callbackButton(
-                                    messageSource.getMessage("command.weather.button.forecast-five", locale),
+                                    messageSource.get("command.weather.button.forecast-five", locale),
                                     FIVE_DAY
                                 )
                             ),
                             listOf(
                                 callbackButton(
-                                    messageSource.getMessage("command.weather.button.forecast-full", locale),
+                                    messageSource.get("command.weather.button.forecast-full", locale),
                                     FULL
                                 )
                             )
                         )
-                    ).withCancelButton()
+                    ).withCancelButton(messageSource.get("msg.cancel", locale))
                 }
             )
         }
@@ -115,7 +115,7 @@ class WeatherCommandExecutor(
             val locale = locale(arguments)
 
             when (data) {
-                CANCEL_DATA -> cancelHandler(bot)
+                CANCEL_DATA -> cancelHandler(bot, messageSource.get("msg.canceled", locale))
                 in CallbackWeatherMode.values().map { it.toString() } -> {
                     sendRequestLocation(
                         bot,
@@ -154,7 +154,7 @@ class WeatherCommandExecutor(
                             KeyboardRow(
                                 listOf(
                                     KeyboardButton(
-                                        messageSource.getMessage(
+                                        messageSource.get(
                                             "command.weather.button.location-request",
                                             locale
                                         )
@@ -221,12 +221,12 @@ class WeatherCommandExecutor(
                 .groupBy { it.dt.toLocalDate(cityTimeZone.toZoneId()) }
                 .map {
                     it.key.toString().bold().space(2) +
-                            it.value.joinToString("\n\n") { dto ->
+                            it.value.joinToString("".space(2)) { dto ->
                                 dto.dt
                                     .toLocalDateTime(cityTimeZone.toZoneId())
                                     .toLocalTime()
                                     .toString()
-                                    .bold().space(1) +
+                                    .bold().space() +
                                         messageSource.getMessage(
                                             "msg.weather-short",
                                             arrayOf(
@@ -239,7 +239,7 @@ class WeatherCommandExecutor(
                                             locale
                                         )
                             }
-                }.joinToString("\n\n")
+                }.joinToString("".space(2))
 
     private fun WeatherDTO.buildArrayParameters(userName: String) = arrayOf(
         userName,

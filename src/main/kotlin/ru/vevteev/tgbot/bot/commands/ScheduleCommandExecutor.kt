@@ -39,11 +39,10 @@ import ru.vevteev.tgbot.extension.callbackQueryFromUserId
 import ru.vevteev.tgbot.extension.callbackQueryMessageChatId
 import ru.vevteev.tgbot.extension.callbackQueryMessageId
 import ru.vevteev.tgbot.extension.cancelHandler
-import ru.vevteev.tgbot.extension.commandMarker
 import ru.vevteev.tgbot.extension.createDeleteMessage
 import ru.vevteev.tgbot.extension.createEditMessage
 import ru.vevteev.tgbot.extension.createSendMessage
-import ru.vevteev.tgbot.extension.getMessage
+import ru.vevteev.tgbot.extension.get
 import ru.vevteev.tgbot.extension.isReplyMessageWithInlineMarkup
 import ru.vevteev.tgbot.extension.locale
 import ru.vevteev.tgbot.extension.messageText
@@ -51,6 +50,7 @@ import ru.vevteev.tgbot.extension.messageUserIdSafe
 import ru.vevteev.tgbot.extension.oneButtonInlineKeyboard
 import ru.vevteev.tgbot.extension.replyMessageId
 import ru.vevteev.tgbot.extension.withCancelButton
+import ru.vevteev.tgbot.extension.withCommandMarker
 import ru.vevteev.tgbot.repository.RedisScheduleDao
 import ru.vevteev.tgbot.schedule.DefaultScheduler
 import java.net.URL
@@ -69,7 +69,7 @@ class ScheduleCommandExecutor(
 
     override fun commandName() = "schedule"
 
-    override fun commandDescription(locale: Locale) = messageSource.getMessage("command.description.schedule", locale)
+    override fun commandDescription(locale: Locale) = messageSource.get("command.description.schedule", locale)
 
     override fun init(bot: TelegramLongPollingBotExt) {
         fun initSchedules() {
@@ -83,10 +83,12 @@ class ScheduleCommandExecutor(
                             RANDOM_CAT -> {
                                 { catAction(it.chatId, catClient, bot) }
                             }
+
                             RANDOM_CONTENT -> {
                                 val (type, fileId) = it.actionDescription.split(":");
                                 { randomContent(RandomContentType.valueOf(type), fileId, it.chatId, bot) }
                             }
+
                             NONE -> {
                                 {}
                             }
@@ -112,10 +114,14 @@ class ScheduleCommandExecutor(
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
-            val locale = locale(arguments) // TODO
+            val locale = locale(arguments)
             bot.execute(
-                createSendMessage("${commandName().commandMarker(arguments)} Давай определимся что будем делать") {
-                    replyMarkup = buildStartInlineKeyboard().withCancelButton()
+                createSendMessage(
+                    messageSource.get("command.schedule.button.init-text", locale)
+                        .withCommandMarker(commandName(), arguments)
+                ) {
+                    replyMarkup = buildStartInlineKeyboard(locale)
+                        .withCancelButton(messageSource.get("msg.cancel", locale))
                 }
             )
             return
@@ -127,18 +133,21 @@ class ScheduleCommandExecutor(
             val data = callbackQueryData()
             val locale = locale(arguments)
             when {
-                data == CANCEL_DATA -> cancelHandler(bot)
+                data == CANCEL_DATA -> cancelHandler(bot, messageSource.get("msg.canceled", locale))
 
                 data in CallbackModeType.values().map { it.toString() } -> {
                     when (CallbackModeType.valueOf(data)) {
                         CREATE -> bot.execute(
                             createEditMessage(
                                 callbackQueryMessageId(),
-                                text = "${commandName().commandMarker(arguments)} Определимся с днями"
+                                messageSource.get("command.schedule.button.date-choose-text", locale)
+                                    .withCommandMarker(commandName(), arguments)
                             ) {
-                                replyMarkup = buildInitScheduleInlineKeyboard().withCancelButton()
+                                replyMarkup = buildInitScheduleInlineKeyboard(locale)
+                                    .withCancelButton(messageSource.get("msg.cancel", locale))
                             }
                         )
+
                         DELETE -> deleteSchedule(bot, arguments)
                     }
                 }
@@ -164,7 +173,7 @@ class ScheduleCommandExecutor(
                         }
                     }
                     bot.execute(createDeleteMessage(callbackQueryMessageId()))
-                    bot.execute(createSendMessage("Готово!"))
+                    bot.execute(createSendMessage(messageSource.get("msg.done", locale)))
                 }
             }
             return
@@ -176,7 +185,7 @@ class ScheduleCommandExecutor(
             if (isReplyMessageWithInlineMarkup()) {
                 val replyMarkup = message.replyToMessage.replyMarkup
                 when (replyMarkup?.keyboard?.firstOrNull()?.firstOrNull()?.callbackData) {
-                    "random_content_waiting" -> processRandomContentWaitingReply(bot)
+                    "random_content_waiting" -> processRandomContentWaitingReply(bot, locale(arguments))
                     "custom_cron_waiting" -> processCustomCronWaitingReply(bot, arguments)
                 }
             }
@@ -187,10 +196,13 @@ class ScheduleCommandExecutor(
         bot: TelegramLongPollingBotExt,
         arguments: List<String>
     ) {
+        val locale = locale(arguments)
         if (message.hasText()) {
             val inputCron = messageText()!!.split(" ")
             if (inputCron.size !in 5..6) {
-                bot.execute(createSendMessage("Некорректный формат выражения, укажи 5 или 6 аргументов"))
+                bot.execute(
+                    createSendMessage(messageSource.get("command.schedule.button.incorrect-cron-text", locale))
+                )
             } else {
                 val updCron = when (inputCron.size) {
                     5 -> {
@@ -203,6 +215,7 @@ class ScheduleCommandExecutor(
                             dayOfWeek = inputCron[4]
                         )
                     }
+
                     6 -> {
                         CronData(
                             second = inputCron[0],
@@ -213,6 +226,7 @@ class ScheduleCommandExecutor(
                             dayOfWeek = inputCron[5]
                         )
                     }
+
                     else -> CronData()
                 }
                 redisDao.get(message.from.id.toString())?.apply {
@@ -228,11 +242,11 @@ class ScheduleCommandExecutor(
                 }
             }
         } else {
-            bot.execute(createSendMessage("Ответь на сообщение обычным текстом"))
+            bot.execute(createSendMessage(messageSource.get("command.schedule.button.incorrect-cron-format", locale)))
         }
     }
 
-    private fun Update.processRandomContentWaitingReply(bot: TelegramLongPollingBotExt) {
+    private fun Update.processRandomContentWaitingReply(bot: TelegramLongPollingBotExt, locale: Locale) {
         redisDao.get(message.from.id.toString())?.apply {
             val (type, s) = when {
                 message.hasAnimation() -> ANIMATION to message.animation.fileId
@@ -253,11 +267,13 @@ class ScheduleCommandExecutor(
             bot.execute(createDeleteMessage(replyMessageId()))
             bot.execute(
                 createSendMessage(
-                    "Окей! Вот твоя задача ${it.cron} ${it.action.description} ${
-                        it.actionDescription.split(
-                            ":"
-                        ).first()
-                    }"
+                    messageSource.getMessage(
+                        "msg.done-schedule",
+                        arrayOf(
+                            "${it.cron} ${it.action} ${it.actionDescription.split(":").first()}"
+                        ),
+                        locale
+                    )
                 )
             )
         }
@@ -268,6 +284,7 @@ class ScheduleCommandExecutor(
         bot: TelegramLongPollingBotExt,
         arguments: List<String>
     ) {
+        val locale = locale(arguments)
         val callbackUserId = callbackQueryFromUserId().toString()
         val callbackMessageChatId = callbackQueryMessageChatId().toString()
         when (actionType) {
@@ -285,7 +302,11 @@ class ScheduleCommandExecutor(
                         bot.execute(
                             createEditMessage(
                                 callbackQueryMessageId(),
-                                "Окей! Вот твоя задача ${it.cron} ${it.action.description}"
+                                messageSource.getMessage(
+                                    "msg.done-schedule",
+                                    arrayOf("${it.cron} ${it.action}"),
+                                    locale
+                                )
                             )
                         )
                     }
@@ -301,10 +322,14 @@ class ScheduleCommandExecutor(
                         bot.execute(
                             createEditMessage(
                                 callbackQueryMessageId(),
-                                "${commandName().commandMarker(arguments)} Окей, ответь на это сообщение тем самым контентом",
+                                messageSource.get("command.schedule.button.random-content-waiting", locale)
+                                    .withCommandMarker(commandName(), arguments),
                                 callbackMessageChatId,
                             ) {
-                                replyMarkup = oneButtonInlineKeyboard("Я жду", "random_content_waiting")
+                                replyMarkup = oneButtonInlineKeyboard(
+                                    messageSource.get("msg.waiting", locale),
+                                    "random_content_waiting"
+                                )
                             }
                         )
                     }
@@ -377,15 +402,13 @@ class ScheduleCommandExecutor(
                 bot.execute(
                     createEditMessage(
                         callbackQueryMessageId(),
-                        """
-                            ${commandName().commandMarker(arguments)} Ответь на это сообщение в виде cron-выражения, как пример https://crontab.guru/
-                            
-                            поддерживается 2 варианта: стандартное и spring cron-выражение, spring формат добавляет параметр секунды в начало (0 * * * * *) 
-                            (З.Ы. очень не советую ставить секундам *)
-                        """.trimIndent(),
+                        messageSource.get("command.schedule.button.custom-cron-text", locale)
+                            .trimIndent()
+                            .withCommandMarker(commandName(), arguments),
                         callbackMessageChatId,
                     ) {
-                        replyMarkup = oneButtonInlineKeyboard("Я жду", "custom_cron_waiting")
+                        replyMarkup =
+                            oneButtonInlineKeyboard(messageSource.get("msg.waiting", locale), "custom_cron_waiting")
                     }
                 )
             }
@@ -397,47 +420,54 @@ class ScheduleCommandExecutor(
     }
 
     private fun Update.deleteSchedule(bot: TelegramLongPollingBotExt, arguments: List<String>) {
+        val locale = locale(arguments)
         val all = redisDao.getAll("${messageUserIdSafe()}*").filter { it.scheduleComplete }
         if (all.isEmpty()) {
-            bot.execute(createEditMessage(callbackQueryMessageId(), "У тебя нет ни одной созданной задачи"))
+            bot.execute(
+                createEditMessage(
+                    callbackQueryMessageId(),
+                    messageSource.get("msg.schedule-list-empty", locale)
+                )
+            )
         } else {
             bot.execute(
                 createEditMessage(
                     callbackQueryMessageId(),
-                    "${commandName().commandMarker(arguments)} Выбери какую задачу хочешь удалить"
+                    messageSource.get("command.schedule.button.delete-task-text", locale)
+                        .withCommandMarker(commandName(), arguments)
                 ) {
                     replyMarkup = InlineKeyboardMarkup(
                         all.map {
                             listOf(
                                 callbackButton(
-                                    "${it.action.description} - ${it.cron}",
+                                    "${it.action} - ${it.cron}",
                                     "remove:${it.keyValue()}"
                                 )
                             )
                         }
-                    ).withCancelButton()
+                    ).withCancelButton(messageSource.get("msg.cancel", locale))
                 }
             )
         }
     }
 
-    private fun buildInitScheduleInlineKeyboard() = InlineKeyboardMarkup(
+    private fun buildInitScheduleInlineKeyboard(locale: Locale) = InlineKeyboardMarkup(
         listOf(
             listOf(
-                callbackButton("Каждый день", EVERY_DAY),
-                callbackButton("По будням", WEEKDAYS)
+                callbackButton(messageSource.get("command.schedule.button.every-day", locale), EVERY_DAY),
+                callbackButton(messageSource.get("command.schedule.button.weekdays", locale), WEEKDAYS)
             ),
             listOf(
-                callbackButton("Своя настройка", CUSTOM)
+                callbackButton(messageSource.get("command.schedule.button.custom", locale), CUSTOM)
             )
         )
     )
 
-    private fun buildStartInlineKeyboard() = InlineKeyboardMarkup(
+    private fun buildStartInlineKeyboard(locale: Locale) = InlineKeyboardMarkup(
         listOf(
             listOf(
-                callbackButton("Создать расписание", CREATE),
-                callbackButton("Удалить расписание", DELETE)
+                callbackButton(messageSource.get("command.schedule.button.create", locale), CREATE),
+                callbackButton(messageSource.get("command.schedule.button.delete", locale), DELETE)
             )
         )
     )
@@ -447,15 +477,23 @@ class ScheduleCommandExecutor(
         arguments: List<String>,
         messageId: Int = callbackQueryMessageId()
     ) {
+        val locale = locale(arguments)
         bot.execute(
-            createEditMessage(messageId, "${commandName().commandMarker(arguments)} Что будем делать?") {
+            createEditMessage(
+                messageId,
+                messageSource.get("command.schedule.button.action-text", locale)
+                    .withCommandMarker(commandName(), arguments)
+            ) {
                 replyMarkup = InlineKeyboardMarkup(
                     listOf(
                         listOf(
-                            callbackButton("Пикча рандомного кота", RANDOM_CAT),
+                            callbackButton(messageSource.get("command.schedule.button.random-cat", locale), RANDOM_CAT),
                         ),
                         listOf(
-                            callbackButton("Отправлять контент (gif, img, text)", RANDOM_CONTENT)
+                            callbackButton(
+                                messageSource.get("command.schedule.button.custom-content", locale),
+                                RANDOM_CONTENT
+                            )
                         )
                     )
                 )
@@ -464,23 +502,25 @@ class ScheduleCommandExecutor(
     }
 
     private fun Update.timeStepEdit(bot: TelegramLongPollingBotExt, arguments: List<String>) {
+        val locale = locale(arguments)
         bot.execute(
             createEditMessage(
                 callbackQuery.message.messageId,
-                "${commandName().commandMarker(arguments)} Хорошо, теперь определимся с временем"
+                messageSource.get("command.schedule.button.time-text", locale)
+                    .withCommandMarker(commandName(), arguments)
             ) {
                 replyMarkup = InlineKeyboardMarkup(
                     listOf(
                         listOf(
-                            callbackButton("Каждый час", EVERY_HOUR),
-                            callbackButton("Каждую минуту", EVERY_MINUTE)
+                            callbackButton(messageSource.get("command.schedule.button.every-hour", locale), EVERY_HOUR),
+                            callbackButton(messageSource.get("command.schedule.button.every-minute", locale), EVERY_MINUTE)
                         ),
                         listOf(
-                            callbackButton("В 12 дня", AM_12),
-                            callbackButton("С 9 утра до 9 вечера", WORK_TIME)
+                            callbackButton(messageSource.get("command.schedule.button.in-12-am", locale), AM_12),
+                            callbackButton(messageSource.get("command.schedule.button.work-time", locale), WORK_TIME)
                         )
                     )
-                ).withCancelButton()
+                ).withCancelButton(messageSource.get("msg.cancel", locale))
             }
         )
     }
@@ -524,10 +564,10 @@ class ScheduleCommandExecutor(
         WORK_TIME
     }
 
-    enum class CallbackActionType(val description: String) {
-        RANDOM_CAT("Пикча кота"),
-        RANDOM_CONTENT("Собственный контент"),
-        NONE("Нет действия")
+    enum class CallbackActionType {
+        RANDOM_CAT,
+        RANDOM_CONTENT,
+        NONE
     }
 
     private enum class RandomContentType {

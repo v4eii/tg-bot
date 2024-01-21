@@ -29,9 +29,9 @@ fun oneButtonInlineKeyboard(text: String, callbackData: String) = InlineKeyboard
     listOf(listOf(callbackButton(text, callbackData)))
 )
 
-fun Update.cancelHandler(bot: TelegramLongPollingBotExt) {
+fun Update.cancelHandler(bot: TelegramLongPollingBotExt, text: String) {
 //    bot.execute(createDeleteMessage(callbackQueryMessageId()))
-    bot.execute(createEditMessage(callbackQueryMessageId(), "Отмена"))
+    bot.execute(createEditMessage(callbackQueryMessageId(), text))
 }
 
 fun Update.messageChatIdSafe(): String =
@@ -99,7 +99,7 @@ fun SendMessage.withCommandKeyboard(bot: TelegramLongPollingBotExt) = apply {
 
 fun Message?.shortInfo() = "${this?.from?.firstName} says ${this?.text}"
 
-fun InlineKeyboardMarkup.withCancelButton(text: String = "Отмена") = apply {
+fun InlineKeyboardMarkup.withCancelButton(text: String) = apply {
     keyboard = keyboard.toMutableList().apply {
         add(listOf(callbackButton(text, CANCEL_DATA)))
     }
@@ -107,11 +107,11 @@ fun InlineKeyboardMarkup.withCancelButton(text: String = "Отмена") = apply
 
 fun TelegramLongPollingBotExt.buildDefaultCommandKeyboard() = ReplyKeyboardMarkup().apply {
     keyboard = getCommandsExecutor().chunked(3)
-        .map { chunk -> KeyboardRow(chunk.map { KeyboardButton("/${it.commandName()}") }) }
+        .map { chunk -> KeyboardRow(chunk.map { KeyboardButton(it.commandName().asCommand()) }) }
     resizeKeyboard = true
 }
 
-fun MessageSource.getMessage(code: String, locale: Locale = Locale.getDefault()) = getMessage(code, null, locale)
+fun MessageSource.get(code: String, locale: Locale = Locale.getDefault()) = getMessage(code, null, locale)
 
 
 fun Int.toLocalDate(zoneId: ZoneId): LocalDate = LocalDate.ofInstant(Instant.ofEpochSecond(this.toLong()), zoneId)
@@ -126,8 +126,10 @@ fun Int.toZoneId(): ZoneId = ZoneId.of(
     }
 )
 
+fun String.asCommand() = "/$this"
+
 fun String.commandMarker(arguments: List<String> = emptyList()) =
-    "/$this ${arguments.joinToString(" ")}".trim() + "|"
+    "${this.asCommand()} ${arguments.joinToString(" ")}".trim() + "|"
 
 fun String.withCommandMarker(commandName: String, arguments: List<String> = emptyList()) =
     "${commandName.commandMarker(arguments)} $this"

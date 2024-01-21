@@ -8,8 +8,8 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import ru.vevteev.tgbot.bot.TelegramLongPollingBotExt
 import ru.vevteev.tgbot.bot.commands.ExchangeRateCommandExecutor.CallbackExchangeMode.CURRENCY
 import ru.vevteev.tgbot.bot.commands.ExchangeRateCommandExecutor.CallbackExchangeMode.CUSTOM
-import ru.vevteev.tgbot.bot.commands.ExchangeRateCommandExecutor.CallbackExchangeMode.EURRUB
-import ru.vevteev.tgbot.bot.commands.ExchangeRateCommandExecutor.CallbackExchangeMode.USDRUB
+import ru.vevteev.tgbot.bot.commands.ExchangeRateCommandExecutor.CallbackExchangeMode.EUR_RUB
+import ru.vevteev.tgbot.bot.commands.ExchangeRateCommandExecutor.CallbackExchangeMode.USD_RUB
 import ru.vevteev.tgbot.client.CbrClient
 import ru.vevteev.tgbot.config.CommandProperties
 import ru.vevteev.tgbot.dto.CbrDailyDTO
@@ -19,12 +19,11 @@ import ru.vevteev.tgbot.extension.callbackButton
 import ru.vevteev.tgbot.extension.callbackQueryData
 import ru.vevteev.tgbot.extension.callbackQueryMessageId
 import ru.vevteev.tgbot.extension.cancelHandler
-import ru.vevteev.tgbot.extension.commandMarker
 import ru.vevteev.tgbot.extension.convertNumericPair
 import ru.vevteev.tgbot.extension.createDeleteMessage
 import ru.vevteev.tgbot.extension.createEditMessage
 import ru.vevteev.tgbot.extension.createSendMessage
-import ru.vevteev.tgbot.extension.getMessage
+import ru.vevteev.tgbot.extension.get
 import ru.vevteev.tgbot.extension.isNonEmptyPair
 import ru.vevteev.tgbot.extension.isRu
 import ru.vevteev.tgbot.extension.locale
@@ -33,6 +32,7 @@ import ru.vevteev.tgbot.extension.oneButtonInlineKeyboard
 import ru.vevteev.tgbot.extension.space
 import ru.vevteev.tgbot.extension.toCurrencyPair
 import ru.vevteev.tgbot.extension.withCancelButton
+import ru.vevteev.tgbot.extension.withCommandMarker
 import ru.vevteev.tgbot.repository.RedisExchangeCacheDao
 import ru.vevteev.tgbot.schedule.DefaultScheduler
 import java.math.BigDecimal
@@ -52,7 +52,7 @@ class ExchangeRateCommandExecutor(
     override fun commandName(): String = "exchange"
 
     override fun commandDescription(locale: Locale): String =
-        messageSource.getMessage("command.description.exchange", locale)
+        messageSource.get("command.description.exchange", locale)
 
     override fun init(bot: TelegramLongPollingBotExt) {
         defaultScheduler.registerNewFixedScheduleTask(
@@ -73,22 +73,24 @@ class ExchangeRateCommandExecutor(
 
     override fun perform(update: Update, bot: TelegramLongPollingBotExt, arguments: List<String>) {
         update.run {
+            val locale = locale(arguments)
             bot.execute(
-                createSendMessage("${commandName().commandMarker(arguments)} Что интересует?") {
+                createSendMessage(messageSource.get("command.exchange.button.exchange-text", locale)
+                    .withCommandMarker(commandName(), arguments)) {
                     replyMarkup = InlineKeyboardMarkup(
                         listOf(
                             listOf(
-                                callbackButton("Доллар - Рубль", USDRUB),
-                                callbackButton("Евро - Рубль", EURRUB),
+                                callbackButton(messageSource.get("command.exchange.button.usd-rub", locale), USD_RUB),
+                                callbackButton(messageSource.get("command.exchange.button.eur-rub", locale), EUR_RUB),
                             ),
                             listOf(
-                                callbackButton("Свой вариант", CUSTOM),
+                                callbackButton(messageSource.get("command.exchange.button.custom", locale), CUSTOM),
                             ),
                             listOf(
-                                callbackButton("Показать доступные валюты", CURRENCY),
+                                callbackButton(messageSource.get("command.exchange.button.currencies", locale), CURRENCY),
                             )
                         )
-                    ).withCancelButton()
+                    ).withCancelButton(messageSource.get("msg.cancel", locale))
                 }
             )
         }
@@ -110,14 +112,14 @@ class ExchangeRateCommandExecutor(
             val locale = locale(arguments)
 
             when (data) {
-                CANCEL_DATA -> cancelHandler(bot)
+                CANCEL_DATA -> cancelHandler(bot, messageSource.get("msg.canceled", locale))
                 in CallbackExchangeMode.values().map { it.toString() } -> {
                     when (CallbackExchangeMode.valueOf(data)) {
-                        USDRUB, EURRUB -> sendExchangeResponse(data, getExchanges(locale), bot, locale)
+                        USD_RUB, EUR_RUB -> sendExchangeResponse(data, getExchanges(locale), bot, locale)
                         CUSTOM -> bot.execute(
                             createEditMessage(
                                 callbackQueryMessageId(),
-                                "${commandName().commandMarker(arguments)} Ответь на это сообщение курсами валют через пробел, как пример: USDRUB 643840 EUR643"
+                                messageSource.get("command.exchange.button.custom-text", locale).withCommandMarker(commandName(), arguments)
                             ) {
                                 replyMarkup = oneButtonInlineKeyboard("Я жду", "custom_exchange_waiting")
                             }
@@ -139,7 +141,7 @@ class ExchangeRateCommandExecutor(
                 callbackQueryMessageId(),
                 exchanges.valCurs
                     .sortedBy { it.numCode }
-                    .joinToString("\n") { "${it.charCode}(${it.numCode}) - ${it.name}" }
+                    .joinToString("".space()) { "${it.charCode}(${it.numCode}) - ${it.name}" }
             )
         )
     }
@@ -176,7 +178,7 @@ class ExchangeRateCommandExecutor(
                             "msg.exchange",
                             arrayOf(
                                 it.key,
-                                it.value.joinToString("\n") { pair -> "${pair.second} ${pair.first.second}" }
+                                it.value.joinToString("".space()) { pair -> "${pair.second} ${pair.first.second}" }
                             ),
                             locale
                         )
@@ -215,7 +217,7 @@ class ExchangeRateCommandExecutor(
                         "643",
                         "RUB",
                         1,
-                        messageSource.getMessage("msg.exchange-rub", locale),
+                        messageSource.get("msg.exchange-rub", locale),
                         BigDecimal.ONE
                     )
                 )
@@ -223,8 +225,8 @@ class ExchangeRateCommandExecutor(
     }
 
     private enum class CallbackExchangeMode {
-        USDRUB,
-        EURRUB,
+        USD_RUB,
+        EUR_RUB,
         CUSTOM,
         CURRENCY
     }
